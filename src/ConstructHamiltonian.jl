@@ -1,4 +1,6 @@
 
+push!(LOAD_PATH, "./src/")
+push!(LOAD_PATH, "../src/")
 
 module ConstructHamiltonian
 #push!(LOAD_PATH, "./src/")
@@ -10,31 +12,31 @@ using MaterialParameters
 using UsefulFunctions
 using Printf
 using Constants
-using nearestNeighbors
+using InBiNNs
 #using PlotStuff
-using GenNNs
+#using GenNNs
 
 export Hgen, makeH
 
 
-function Hgen(spin)
+function Hgen(p,A)
 
 	# modify the hopping and generate the static part of the hamiltonian
 	#NN2s = nn2(λ,Rvals,U₂)
 	# debug
 	#show(H_hop)
 	#println("edgeNNs")
-	#show(edgeNNs)
-
 	#Himp = chargeImpurities(λ,fz,R,V₀)
 	
 	# should be imported, is estimate for now
-	H_onsite = Diagonal(ϵ_onsite)
+	#H_onsite = Diagonal(ϵ_onsite)
 	
-	NNAtoms = NNatoms()
-	NN_hops = NNfromAtoms(NNAtoms)
-	H_hop, edge_hops = nnHoppingMat(NN_hops,4)
-	H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
+	#NNAtoms = NNatoms()
+	#NN_hops = NNfromAtoms(NNAtoms)
+	NNs = genNNs(p)
+	H₀, edge_NNs = nnHoppingMat(NNs,p)
+	H_onsite = I(p.n)⊗(Diagonal([p.ε₁, p.ε₂])⊗I(2))⊗I(p.norb)⊗I(2)
+	#H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
 	#H₀ = sparse(H_hop .- μ*I(N) .+ H_U₂ .+ Himp) # add on Hpot, Hcharge, H+U, etc here
 	
 	#=function H_pre(k,B) #pre-scf
@@ -51,26 +53,33 @@ function Hgen(spin)
 	#H_B = Diagonal(deepcopy(B*(n₊.-n₋)))
 	#function H(k::Array{Int64,1})
 
-	N = size(H_onsite)[1]
-	
-	β = 0.6*eV
+	#N = size(H_onsite)[1]
+	#
+	#β = 0.6*eV
 	function H(k)
-		H_edge = zeros(ComplexF64, N,N)
-		
-		for NN in edge_hops
-			H_edge[NN.a,NN.b] += NN.t*exp(im*k⋅(A*NN.N)) 
+		# hamiltonian describing the edges
+		Hₑ = zeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
+		for NN in edge_NNs
+			Δϕ = exp(im*k⋅(p.a₁*NN.N[1] + p.a₂*NN.N[2] + p.a₃*NN.N[3]))
+			Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
+			Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
+			Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
+			Hₑ[2*NN.b  , 2*NN.a  ] += NN.t[2,2]*Δϕ
+			
+			#=Hₑ[2*NN.b-1, 2*NN.a-1] .+= NN.t[1,1]*NN.t*Δϕ
+			Hₑ[2*NN.b  , 2*NN.a-1] .+= NN.t[2,1]*NN.t*Δϕ
+			Hₑ[2*NN.b-1, 2*NN.a  ] .+= NN.t[1,2]*NN.t*Δϕ
+			Hₑ[2*NN.b  , 2*NN.a  ] .+= NN.t[2,2]*NN.t*Δϕ=#
 		end
-		if(spin == true)
-			return Hermitian( (H_edge .+ H₀)⊗I(2) .+ β*I(2)⊗[1 0; 0 0]⊗σ₃)
-		else
-			return Hermitian(H_edge .+ H₀)
-		end
-		#return I(4)
+		#if(spin == true)
+		#	return Hermitian( (H_edge .+ H₀)⊗I(2) .+ β*I(2)⊗[1 0; 0 0]⊗σ₃)
+		#else
+		#	return Hermitian(H_edge .+ H₀)
+		#end
+		return Hermitian(H₀ .+ H_onsite .+ Hₑ)
 	end
 	println("Great, SCF converged. Returning H(k).\n")
 	return H 
-	#return H, n₊, n₋, R, pseudoB.(R)
-	#return H, n₊, n₋, R, pseudoB.(R)
 end
 
 
