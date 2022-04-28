@@ -18,8 +18,8 @@ using InBiNNs
 
 export Hgen, makeH
 
-
-function Hgen(p,A)
+# Takes in the parameter list and the vector potential
+function Hgen(p,A::Function)
 
 	# modify the hopping and generate the static part of the hamiltonian
 	#NN2s = nn2(λ,Rvals,U₂)
@@ -53,8 +53,9 @@ function Hgen(p,A)
 	#H_B = Diagonal(deepcopy(B*(n₊.-n₋)))
 	#function H(k::Array{Int64,1})
 
-	#N = size(H_onsite)[1]
-	#
+	
+
+	# messing around with magnetic field
 	β = 0.0*eV*[0;0;1]
 	Hᵦ = I(4)⊗I(p.norb)⊗(β[1]*σ₁ .+ β[2]*σ₂ .+ β[3]*σ₃)
 	function H(k)
@@ -84,10 +85,12 @@ function Hgen(p,A)
 end
 
 
+# all these functions are obsolete, but could be useful... especially chargeImpurities
+# we are not adding any onsite +U terms quite yet, so the SCF loops may be unnecessary. 
+
 #function makeH(H₀, edgeNNs, λ, k::Array{Int64,1})
 function makeH(H₀, edgeNNs, λ, k)
 	
-	# a jank thing to make the compiler happy, speeds up runtime × λ² = 8000 for real system
 	#=let
 		H_static = H_static_scf
 		edgeNNs = edgeNNs_scf

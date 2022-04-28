@@ -25,6 +25,7 @@ function xyztoi(p,ivec, N::Vector{Int} = [0;0;0])
 end
 
 # Same as above, except returns the corresponding atomic position of each index vector 
+# useful for calculating ∫A⋅δR peierls phase
 function xyztor(p,ivec)
 	ix = ivec[1]; iy = ivec[2]; iz = ivec[3]; isite = ivec[4];
 	δdict = Dict(0 => p.A*[0.0; 0.0; 0.0], #In 1 
@@ -44,9 +45,9 @@ mutable struct Hopping
 	ra # location of atom a
 	rb # location of atom b
 	r # radius from a to b
-	t  # hopping parameter affiliated with c†₂c₁
-	edge::Bool
-	N # vector describing the [n₁;n₂;n₃]⋅[a₁;a₂;a₃] superlattice unit cell
+	t  # hopping parameter affiliated with c†₂c₁ in spin basis. (i.e., t*I(2) or t*σ₊ might make sense)
+	edge::Bool # does this hop off the edge of the superlattice?
+	N # vector describing the [n₁;n₂;n₃]⋅[a₁;a₂;a₃] superlattice unit cell of site ib
 end
 
 
@@ -306,7 +307,7 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 			NN.N = Int.([round(pib[1]/(p.nx)),round(pib[2]/p.ny),round(pib[3]/p.nz)])
 			NN.b = xyztoi(p,NN.ib, NN.N)
 			NN.edge = true
-			println("$(NN.N)")
+			#println("$(NN.N)")
 		end
 	end
 	return NNs

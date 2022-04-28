@@ -29,7 +29,7 @@ export main
 # output: figure, with bands projected (or not))
 # can project eigstates onto an operator Q that is defined in the hilbert space of H(k) at a defined k.
 # Needs a new subroutine to calculate berry curvature or chern number  
-function runBands(p,nk, H, proj::Bool=false,save=false,path="",name="")
+function runBands(p,nk, H, Q, proj::Bool=false,save=false,path="",name="")
 	
 	#default list of interesting points -- notation can be changed if desired, look in 
 	klist = ["Γ","M","X","Γ","Z","A","R","Z"]
@@ -48,7 +48,6 @@ function runBands(p,nk, H, proj::Bool=false,save=false,path="",name="")
 	E, Estates = getBands(klist, kdict, nk, p.a, H)
 	println("Plotting...")
 	#Q = closestPeak(λ) 
-	Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
 	#Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
 	#Q = I(2)⊗(Diagonal([1 0]))⊗Diagonal([1 1])⊗I(2)
 	if(proj)
@@ -160,37 +159,28 @@ function A(R::Vector{Float64})
 	return [0;0;0]
 end
 
-# drives the car
+# What Is To Be Done?
 function main(p,save=false,path="")
 	
 	# number of sites
-	#N = 2*λ^2
 	println("=========== InBi ==============")
 	println("Running simulation with parameters: ")
-	#println("λ = $λ*a₀, σ = $σ nm, Δh0 = $Δh0 nm, θ = $θ °, fᵤ = $fᵤ")
-	#println("U = $U eV, U₂ = $U₂ eV, μ = $μ eV, V₀ = $V₀")
+	println("params = $p") # oh this is so ugly, clean it later
 	if(save) println("Saving outputs to $path\n") end
 
 	println("Generating static hamiltonian...")
 	H = runSCF(p,A,save,path)
-	# might be more efficient, need to research into closures in julia
-	#H(k) = k -> makeH(Hstatic,edgeNNs,λ,k)
-	
 
 	# some arbitrary operators for bands routine
 	
-
-	#Q = closestPeak(λ) 
-	#Q = I(λ^2)⊗σ₃ # pseudospin operator -- nonsense i think
-	#Q = I(N)⊗σ₃ # spin operator, if enabled spin polarized or U > 0 in Hgen 
-	
-	
-	runBands(p,2^8,H,true)
+	# project onto Q = |In><In| for bands purposes
+	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
+	Q = I(p.n)⊗I(2)⊗(Diagonal([1 0]))⊗I(p.norb)⊗I(2)
+	runBands(p,2^8,H,Q,true)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")
 
-	# if sweeping like in eva andrei superlattice paper
-	#return DOS, Evals
+	# if sweeping, can return something here
 end
 end
