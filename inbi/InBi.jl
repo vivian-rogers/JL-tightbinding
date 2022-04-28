@@ -7,16 +7,16 @@ using Constants
 
 export params, kdictGen
 # electronic properties
-t₁ = 0.1*eV; # In-Bi px-px,py-py
-t₂ = 0.5*eV; # In-In px-py, py-px hopping
-t₃ = 0.4*eV; #Bi-Bi px-py, py-px
+t₁ = 0.3*eV; # In-Bi px-px,py-py
+t₂ = 0.15*eV; # In-In px-py, py-px hopping
+t₃ = 0.2*eV; #Bi-Bi px-py, py-px
 t₄ = 0 # obsolete
-t₅ = 0.25*eV # In-In 2nd nn hopping
-t₆ = 0.25*eV;# Bi-Bi 2nd nn hopping
-t₇ = 0.2*eV;# In-Bi further hoppings
-t₈ = 0.0*eV;# In-In 2nd nn vertical hoppings
+t₅ = 0.03*eV # In-In 2nd nn hopping
+t₆ = 0.03*eV;# Bi-Bi 2nd nn hopping
+t₇ = 0.02*eV;# In-Bi further hoppings
+t₈ = 0.02*eV;# In-In 2nd nn vertical hoppings
 t₉ = 0.0*eV;# In-In px -px, py-py hoppings
-ε₁ = 0.2*eV; ε₂ = -0.2*eV
+ε₁ = 0.4*eV; ε₂ = 0.6*eV
 
 # structural properties
 a = 4.8*Å; c = 4.8*Å
