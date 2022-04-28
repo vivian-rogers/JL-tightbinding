@@ -32,8 +32,9 @@ export main
 function runBands(p,nk, H, proj::Bool=false,save=false,path="",name="")
 	
 	#default list of interesting points -- notation can be changed if desired, look in 
-	#klist = ["A","M","X","R","X","Γ","Z"]
 	klist = ["Γ","M","X","Γ","Z","A","R","Z"]
+	#klist = ["Γ","M","X","Γ","A","M","X","R","X","Γ","Z"]
+	#klist = ["Γ","M","X","Γ","Z","A","R","Z"]
 
 	# generates k-name -> k-value correspondence 
 	kdict = p.kdict
@@ -48,6 +49,8 @@ function runBands(p,nk, H, proj::Bool=false,save=false,path="",name="")
 	println("Plotting...")
 	#Q = closestPeak(λ) 
 	Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
+	#Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
+	#Q = I(2)⊗(Diagonal([1 0]))⊗Diagonal([1 1])⊗I(2)
 	if(proj)
 		# projects onto Q
 		projStates = expectedValue(Q,Estates)
@@ -182,7 +185,7 @@ function main(p,save=false,path="")
 	#Q = I(N)⊗σ₃ # spin operator, if enabled spin polarized or U > 0 in Hgen 
 	
 	
-	runBands(p,2^6,H,true)
+	runBands(p,2^8,H,true)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")

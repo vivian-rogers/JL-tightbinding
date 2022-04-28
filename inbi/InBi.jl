@@ -1,5 +1,4 @@
 push!(LOAD_PATH, "./")
-push!(LOAD_PATH, "./src/")
 push!(LOAD_PATH, "../src/")
 
 module InBi
@@ -8,8 +7,16 @@ using Constants
 
 export params, kdictGen
 # electronic properties
-t₁ = 2.5*eV; t₂ = 1.0*eV; t₃ = 1.5*eV; t₄ = 0.6*eV
-ε₁ = -0.2*eV; ε₂ = 0.4*eV
+t₁ = 0.1*eV; # In-Bi px-px,py-py
+t₂ = 0.5*eV; # In-In px-py, py-px hopping
+t₃ = 0.4*eV; #Bi-Bi px-py, py-px
+t₄ = 0 # obsolete
+t₅ = 0.25*eV # In-In 2nd nn hopping
+t₆ = 0.25*eV;# Bi-Bi 2nd nn hopping
+t₇ = 0.2*eV;# In-Bi further hoppings
+t₈ = 0.0*eV;# In-In 2nd nn vertical hoppings
+t₉ = 0.0*eV;# In-In px -px, py-py hoppings
+ε₁ = 0.2*eV; ε₂ = -0.2*eV
 
 # structural properties
 a = 4.8*Å; c = 4.8*Å
@@ -42,7 +49,8 @@ function kdictGen(A)
 end
 
 params = (
-	  t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, ε₁ = ε₁, ε₂ = ε₂, 
+	  t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
+	  ε₁ = ε₁, ε₂ = ε₂, 
 	  a₁ = a₁, a₂ = a₂, a₃ = a₃, A = A, a=a, b=a, c=c,
 	  SLa₁ = a₁, SLa₂ = a₂, SLa₃ = a₃,
 	  nx = nx, ny = ny, nz = nz, n = n, norb = 2, nsite = 4,
