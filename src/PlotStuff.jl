@@ -154,7 +154,7 @@ function plotBands(klist, nk, E, projStates, name="")
 	for kTick in kSymPts
 		PyPlot.plot([kTick,kTick],[-30,30],c="#666666",lw=0.5)
 	end
-	Pyplot.xticks(kSymPts,klist)
+	PyPlot.xticks(kSymPts,klist)
 	xlim(0, nSymPts-1)
 	maxE = maximum(E)
 	minE = minimum(E)
