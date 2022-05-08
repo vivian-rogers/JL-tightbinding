@@ -3,7 +3,7 @@ module Operators
 
 using LinearAlgebra
 using Constants
-using SparseArrays
+#using SparseArrays
 
 ⊗(A,B) = kron(A,B)
 ×(u,v) = cross(u,v)
@@ -74,14 +74,14 @@ L₁ = Tridiagonal((1/2)*(L₊ .+ L₋))
 
 L₂ = Tridiagonal((1/2)*(-im*L₊ .+ im*L₋)) 
 
-J₁ = L₁⊗I(2) .+ I(9)⊗S₁
-J₂ = L₂⊗I(2) .+ I(9)⊗S₂
-J₃ = L₃⊗I(2) .+ I(9)⊗S₃
+#J₁ = L₁⊗I(2) .+ I(9)⊗S₁
+#J₂ = L₂⊗I(2) .+ I(9)⊗S₂
+#J₃ = L₃⊗I(2) .+ I(9)⊗S₃
 
-J² = J₁*J₁ .+ J₂*J₂ .+ J₃*J₃
-altLdotS = (1/2)*(J² .- (L²⊗I(2) +  I(9)⊗S²))
+#J² = J₁*J₁ .+ J₂*J₂ .+ J₃*J₃
+#altLdotS = (1/2)*(J² .- (L²⊗I(2) +  I(9)⊗S²))
 
-LdotS = (L₁⊗I(2))*(I(9)⊗S₁) + (L₂⊗I(2))*(I(9)⊗S₂) + (L₃⊗I(2))*(I(9)⊗S₃)
+#LdotS = (L₁⊗I(2))*(I(9)⊗S₁) + (L₂⊗I(2))*(I(9)⊗S₂) + (L₃⊗I(2))*(I(9)⊗S₃)
 
 
 function gradients(nx,ny,nz, aᵢ, pbx = 0, pby = 0, pbz = 0) # generates gradient matrices for square lattice
