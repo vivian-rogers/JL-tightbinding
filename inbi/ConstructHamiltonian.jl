@@ -62,7 +62,7 @@ function Hgen(p,A::Function)
 		# hamiltonian describing the edges
 		Hₑ = zeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
 		for NN in edge_NNs
-			Δϕ = exp(im*k⋅(p.a₁*NN.N[1] + p.a₂*NN.N[2] + p.a₃*NN.N[3]))
+			Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
 			Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
 			Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
 			Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
