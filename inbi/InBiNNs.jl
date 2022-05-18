@@ -63,10 +63,10 @@ function nnHoppingMat(NNs,p)
 			# at site 1->2 would be a_2,1
 			# with site ⊗ spin, would be 
 			#H[NN.a,NN.b] = NN.t
-			H[2*NN.b-1, 2*NN.a-1] = NN.t[1,1]
-			H[2*NN.b  , 2*NN.a-1] = NN.t[2,1]
-			H[2*NN.b-1, 2*NN.a  ] = NN.t[1,2]
-			H[2*NN.b  , 2*NN.a  ] = NN.t[2,2]
+			H[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]
+			H[2*NN.b  , 2*NN.a-1] += NN.t[2,1]
+			H[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]
+			H[2*NN.b  , 2*NN.a  ] += NN.t[2,2]
 		end
 	end
 	return H, edgeNNs

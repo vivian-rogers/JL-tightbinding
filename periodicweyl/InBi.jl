@@ -36,6 +36,7 @@ function kdictGen(A)
 		    "A" => B*[ 1/2;  1/2; 1/2],
 		    "M" => B*[ 1/2;  1/2;   0],
 		    "R" => B*[ 0  ;  1/2; 1/2],
+		    "X₁" => B*[ 1/2  ;  0;   0],
 		    "X" => B*[ 0  ;  1/2;   0],
 		    "Z" => B*[ 0  ;    0; 1/2]
 		    )
@@ -52,11 +53,11 @@ end
 
 params = (
 	  t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
-	  vf = 10^6,
+	  vf = 10^7,
 	  ε₁ = ε₁, ε₂ = ε₂, 
 	  a₁ = a₁, a₂ = a₂, a₃ = a₃, A = A, a=a, b=a, c=c,
 	  SLa₁ = a₁, SLa₂ = a₂, SLa₃ = a₃,
-	  nx = nx, ny = ny, nz = nz, n = n, norb = 1, nsite = 1,
+	  nx = nx, ny = ny, nz = nz, n = n, norb = 1, nsite = 2,
 	  kdict = kdictGen(A)
 	  )
 

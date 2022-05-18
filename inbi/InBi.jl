@@ -5,18 +5,18 @@ module InBi
 using Driver
 using Constants
 
-export params, kdictGen
+export params, kdictGen, genSL
 # electronic properties
-t₁ = 0.3*eV; # In-Bi px-px,py-py
-t₂ = 0.15*eV; # In-In px-py, py-px hopping
-t₃ = 0.2*eV; #Bi-Bi px-py, py-px
+t₁ = 0.0*eV; # In-Bi px-px,py-py
+t₂ = 0.9*eV; # In-In 1st NN hopping
+t₃ = 0.3*eV; #Bi-Bi 1st NN hopping
 t₄ = 0 # obsolete
-t₅ = 0.03*eV # In-In 2nd nn hopping
-t₆ = 0.03*eV;# Bi-Bi 2nd nn hopping
-t₇ = 0.02*eV;# In-Bi further hoppings
-t₈ = 0.02*eV;# In-In 2nd nn vertical hoppings
+t₅ = 0.17*eV # In-In 2nd NN hopping
+t₆ = 0.04*eV;# Bi-Bi 2nd NN hopping
+t₇ = 0.0*eV;# In-Bi further hoppings
+t₈ = -0.1*eV;# In-In 2nd nn vertical hoppings
 t₉ = 0.0*eV;# In-In px -px, py-py hoppings
-ε₁ = 0.4*eV; ε₂ = 0.6*eV
+ε₁ = 1.9*eV; ε₂ = -1.2*eV #onsite energy for In, Bi
 
 # structural properties
 a = 4.8*Å; c = 4.8*Å
@@ -25,6 +25,8 @@ a₁ = A[:,1]; a₂ = A[:,2]; a₃ = A[:,3]
 B = transpose(2*π*inv(A))
 b₁ = B[:,1]; b₂ = B[:,2]; b₃ = B[:,3]
 
+
+# modify these in Driver.jl or Runs.jl. Number of supercells in each direction. 
 nx = 1; ny = 1; nz = 1; n = nx*ny*nz
 
 function kdictGen(A)
@@ -57,6 +59,22 @@ params = (
 	  kdict = kdictGen(A)
 	  )
 
+
+function genLatSL(p,SL1::Vector{Int},SL2::Vector{Int},SL3::Vector{Int})
+	SLa₁ = SLa₁[1]*p.a₁ + SLa₁[2]*p.a₂ + SLa₁[3]*p.a₃
+	SLa₂ = SLa₂[1]*p.a₁ + SLa₂[2]*p.a₂ + SLa₂[3]*p.a₃
+	SLa₃ = SLa₃[1]*p.a₁ + SLa₃[2]*p.a₂ + SLa₃[3]*p.a₃
+	return SLa₁, SLa₂, SLa₃
+end
+
+function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::Vector{Int})
+	SLa₁, SLa₂, SLa₃ = genLatSL(p,SL1,SL2,SL3)
+	p.SLa₁ = SLa₁; p.SLa₂ = SLa₂; p.SLa₃
+	p.A = hcat(p.SLa₁,p.SLa₂,p.SLa₃)
+	p.nx = nx; p.ny = ny; p.nz = nz;
+	p.kdict = kdictGen(p.A)
+	return p
+end
 
 main(params)
 

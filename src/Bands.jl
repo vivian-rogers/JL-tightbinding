@@ -50,6 +50,10 @@ function getBands(klist, kdict, n, a, Hofk) #takes in array of kpt strings, numb
 	
 	#	show(kpts)
 	testH = Hofk([0;0;0])
+	if(any(isnan,testH)==true)
+		throw(DomainError(testH, "Something broken in hamiltonian definition! Returning NaN"))
+		return
+	end
 	#initialize the band array
 	#λ_test, evecs_test = eig(testH, 1E-12)
 	arpack = false # small hamiltonian, few bands
@@ -77,6 +81,10 @@ function getBands(klist, kdict, n, a, Hofk) #takes in array of kpt strings, numb
 	for ik in 1:nk
 		k = kpts[ik]
 		H = Hofk(k)
+		#print("\n\nnk = ")
+		#show(k)
+		#print("\nH(k) = ")
+		#show(H)
 		#Eofk, Estatek = eigs(Hermitian(H))
 		#Eofk, Estatek = eigen(H)
 		if(arpack)
