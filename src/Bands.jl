@@ -44,27 +44,28 @@ function interpolate(n,klist,a,kdict)
 	return kpts
 end
 
-function getBands(klist, kdict, n, a, Hofk) #takes in array of kpt strings, number of interpolation pts, H(k) function
+function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array of kpt strings, number of interpolation pts, H(k) function
 	kpts = interpolate(n,klist,a,kdict)
 	nk = size(kpts)[1]
 	
 	#	show(kpts)
-	testH = Hofk([0;0;0])
+	testH = Hofk([0;0;1])
 	if(any(isnan,testH)==true)
 		throw(DomainError(testH, "Something broken in hamiltonian definition! Returning NaN"))
 		return
 	end
-	#initialize the band array
+	#initialize the ban array
 	#λ_test, evecs_test = eig(testH, 1E-12)
-	arpack = false # small hamiltonian, few bands
+	#arpack = true # small hamiltonian, few bands
 	if(arpack)
-		maxiter = 400
-		nE = 4*Int(floor(log2(size(testH)[1])))
+		maxiter = 4000
+		#nE = 128
+		nE = 6*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
 			println("Heads up! $nE / $nEig eigvls are being calculated")
 		end
-		λ_test, evecs_test = eigs(testH,nev=nE, maxiter=maxiter)
+		λ_test, evecs_test = eigs(testH,nev=nE, which=:SM, maxiter=maxiter)
 		#nE = size(λ_test)[1]
 		ndim = size(evecs_test)[2]
 	else
@@ -72,7 +73,7 @@ function getBands(klist, kdict, n, a, Hofk) #takes in array of kpt strings, numb
 		nEig = nE
 	end
 	Evals = zeros(Float64, nk, nE)
-	Estates = zeros(ComplexF64, nk, nE, nE) 
+	Estates = zeros(ComplexF64, nk, nEig, nE) 
 	#go through and fill it up
 	
 	#
@@ -81,16 +82,22 @@ function getBands(klist, kdict, n, a, Hofk) #takes in array of kpt strings, numb
 	for ik in 1:nk
 		k = kpts[ik]
 		H = Hofk(k)
+		# just for WSM calculations
+		#if(k⋅k ≈ 0)
+		#	H
 		#print("\n\nnk = ")
 		#show(k)
 		#print("\nH(k) = ")
 		#show(H)
 		#Eofk, Estatek = eigs(Hermitian(H))
 		#Eofk, Estatek = eigen(H)
-		if(arpack)
+		print("$(round.(k,sigdigits=4))... ")
+		#if(norm(H) < 0.01 || k⋅k≈0)
+		#	Estatek = (1/√(nEig))*ones(nEig,nE); Eofk = zeros(nE)
+		if(arpack && !(k⋅k≈-1))
 			Eofk, Estatek = eigs(H,nev=nE, which=:SM, maxiter=maxiter)
 		else
-			Eofk, Estatek = eigen(H)
+			Eofk, Estatek = eigen(Array(H))
 		end
 		#show(size(Estatek))
 		#Eofk, Estatek = eigen(H)
