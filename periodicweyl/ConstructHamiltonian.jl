@@ -13,6 +13,7 @@ using UsefulFunctions
 using Printf
 using Constants
 using InBiNNs
+using VectorPotential
 #using PlotStuff
 #using GenNNs
 
@@ -34,8 +35,12 @@ function Hgen(p,A::Function)
 	#NNAtoms = NNatoms()
 	#NN_hops = NNfromAtoms(NNAtoms)
 	NNs = genNNs(p)
-	H₀, edge_NNs = nnHoppingMat(NNs,p)
-	H_onsite = I(p.n)⊗I(p.norb)⊗I(2)
+	#Rvals = RvalsGen(p)⊗I(p.norb) 
+	NNs = pruneHoppings(NNs,p.prune) # cut off the periodic boundary hoppings
+	NNs = hoppingModification(NNs,A) # apply the peierls phase
+	H₀, edge_NNs = nnHoppingMat(NNs,p) 
+	H_onsite = I(p.n)⊗I(p.nsite)⊗Diagonal([ϵ; -ϵ])⊗I(2)
+	H₀ .+= Diagonal(rand(Float64,p.n*p.nsite*p.norb*2).-0.5)*10^-3
 	#H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
 	#H₀ = sparse(H_hop .- μ*I(N) .+ H_U₂ .+ Himp) # add on Hpot, Hcharge, H+U, etc here
 	
@@ -56,13 +61,14 @@ function Hgen(p,A::Function)
 	
 
 	# messing around with magnetic field
-	β = 0.0*eV*[0,0,1]
-	Hᵦ = I(1)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
+	β = 0.1*eV*[1,0,0]
+	Hᵦ = I(p.nsite)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
 	function H(k)
 		# hamiltonian describing the edges
 		Hₑ = zeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
 		for NN in edge_NNs
-			Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
+			Δϕ = exp(im*k⋅(p.A*NN.N))
+			#Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
 			Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
 			Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
 			Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
@@ -78,7 +84,14 @@ function Hgen(p,A::Function)
 		#else
 		#	return Hermitian(H_edge .+ H₀)
 		#end
-		return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)
+		#println("H₀ = $H₀")
+		#println("Hₑ = $Hₑ")
+		#if(k⋅k ≈ 0)
+		#	println("Hₑ = $Hₑ")
+		#	println("H₀ = $H₀")
+		#end
+		return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
+		#return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)
 	end
 	println("Great, SCF converged. Returning H(k).\n")
 	return H 

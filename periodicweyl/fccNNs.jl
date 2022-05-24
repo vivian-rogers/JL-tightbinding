@@ -11,7 +11,7 @@ using Operators
 using Bands
 
 
-export nnHoppingMat, genNNs, pruneHoppings, RvalsGen
+export nnHoppingMat, genNNs
 
 # Takes in the parameters p, index vector (ix,iy,iz,isite (in unit cell), and iorb)
 # returns the site-index in the full hamiltonian
@@ -19,9 +19,9 @@ function xyztoi(p,ivec, N::Vector{Int} = [0;0;0])
 	# indexing 0 to N-1
 	# in case the A₂ lattice vector != C*[0;1;0]
 	diy = Int(round(p.SLa₂[1]/p.a₁[1]))*N[2]
+	#println("diy = $diy")
 	#ix = ivec[1]; iy = ivec[2]; iz = ivec[3]; isite = ivec[4]; iorb = ivec[5]
 	ix = mod(ivec[1],p.nx); iy = mod(ivec[2] + diy,p.ny); iz = mod(ivec[3],p.nz); isite = ivec[4]; iorb = ivec[5]
-	#ix = mod(ivec[1],p.nx); iy = mod(ivec[2],p.ny); iz = mod(ivec[3],p.nz); isite = ivec[4]; iorb = ivec[5]
 	return iorb + p.norb*isite + p.nsite*p.norb*ix + p.nsite*p.norb*p.nx*iy + p.nsite*p.norb*p.nx*p.ny*iz + 1
 end
 
@@ -35,23 +35,6 @@ function xyztor(p,ivec)
 		     #3 => p.A*[0.5; 0.0; 1.10248-0.5]) #Bi 2
 	δ = δdict[isite]
 	return p.a₁*ix + p.a₂*iy + p.a₃*iz + δ
-end
-
-function RvalsGen(p)
-	N = p.n*p.nsite
-	R = zeros(N)
-	for ix = 0:(p.nx-1)
-		for iy = 0:(p.nx-1)
-			for iz = 0:(p.nx-1)
-				for isite = 0:(p.nsite-1)
-					iR = Int(1 + isite + ix*p.nsite + iy*p.nx*p.nsite + iz*p.ny*p.nz*p.nsite)
-					ivec = Int.([ix,iy,iz,isite])
-					R[iR] = xyztor(p,ivec)
-				end
-			end
-		end
-	end
-	return R # needs ⊗I(p.norb)⊗I(2) for full (spinful) hilbert space
 end
 
 # Defines a cᵦ†cₐ term 
@@ -83,14 +66,13 @@ function nnHoppingMat(NNs,p)
 			#H[NN.a,NN.b] = NN.t
 			#println("NN hopping = $(NN.t)")
 			#println("indices a,b = $(NN.a), $(NN.b)")
-			#show(NN)
 			H[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]
 			H[2*NN.b  , 2*NN.a-1] += NN.t[2,1]
 			H[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]
 			H[2*NN.b  , 2*NN.a  ] += NN.t[2,2]
 		end
 	end
-	#println("H₀ = $H")
+	println("H₀ = $H")
 	return H, edgeNNs
 end
 
@@ -122,8 +104,7 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 	for iy = 0:(p.ny-1)
 		for iz = 0:(p.nz-1)
 			for ix = 0:(p.nx-1)
-				isite = 0
-				for iorb = 0:(p.norb-1)
+				for isite = 0:(p.nsite-1)
 					# loop over each site in the given ix,iy,iz unit cell and generate cᵦ^†cₐ terms on hamiltonian
 					# note: Δi represents the offset to the index vector, the hopping term loop is defined using such
 					# key: di = [Δi_x, Δi_y, Δi_z, iᵦ - iₐ (dif of atom indices in unit cell), Δi_orbital
@@ -131,34 +112,38 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 					# [Unit cell] ⊗ [site] ⊗ [orbital px or py]
 					# Hamiltonian is now spinless, see p.t₂*I(2) in line 108. Can use p.t₁*σ₁, say. 
 					# indices to loop over to generate τₓ: top right, bottom right, top left, bottom left, up, down
-					
-					#UTR = [isite,isite,isite,nextsite(isite),orb]; UBR = [isite,isite-1,isite,nextsite(isite),orb]; 
-					#UTL = [isite-1,isite,isite,nextsite(isite),orb]; UBL = [isite-1,isite-1,isite,nextsite(isite),orb]; 
-					#DTR = [isite,isite,isite-1,nextsite(isite),orb]; DBR = [isite,isite-1,isite-1,nextsite(isite),orb]; 
-					#DTL = [isite-1,isite,isite-1,nextsite(isite),orb]; DBL = [isite-1,isite-1,isite-1,nextsite(isite),orb]; 
+					UTR = [isite,isite,isite,nextsite(isite),orb]; UBR = [isite,isite-1,isite,nextsite(isite),orb]; 
+					UTL = [isite-1,isite,isite,nextsite(isite),orb]; UBL = [isite-1,isite-1,isite,nextsite(isite),orb]; 
+					DTR = [isite,isite,isite-1,nextsite(isite),orb]; DBR = [isite,isite-1,isite-1,nextsite(isite),orb]; 
+					DTL = [isite-1,isite,isite-1,nextsite(isite),orb]; DBL = [isite-1,isite-1,isite-1,nextsite(isite),orb]; 
 					
 					#U = [0,0,1,0,orb]; D = [0,0,-1,0,orb]; 
-					ia = [ix,iy,iz,isite,iorb];
-					for ax = 1:3
-						for dir = [-1,1]
-							di = zeros(5); di[ax] = dir; di[5] = nextsite(iorb); ib = Int.(ia + di)
-							Ra = xyztor(p,ia); Rb = xyztor(p,ib); 
-							δ = Rb - Ra
-							# implement H = +vf*𝐩⋅𝛔 = -vf𝑖ħ ∇ᵣ⋅σ on finite grid
-							#println("δR$ax = $dR")
-							#pushHopping!(NNs, (p.vf*-im*ħ/q)*(1/(2*dR))⊗I(2), ia, ib, p)
-							t = zeros(ComplexF64,2,2)
-							#for ax = 1:3
-								#dR = abs(Rb[ax] - Ra[ax])
-								#if(dR ≈ 0)
-								#	println("Uh oh, some distances are 0...")
-								#	println("di = $di")
-								#end
-							δ = Rb - Ra
-							#t = (1/(2*δ[ax]))*σ[ax]
-							t = -im*(p.vf*ħ/q)*(1/(2*δ[ax]))*σ[ax]
-							pushHopping!(NNs, t, ia, ib, p)
-						end
+					ia = [ix,iy,iz,isite,0];
+					for di = [UTR,UBR,UTL,UBL,DTR,DBR,DTL,DBL]
+						#for ax = [1,2,3]
+						#for dir = [-1,1]
+						# implement H = +vf*𝐩⋅𝛔 = -vf𝑖ħ ∇ᵣ⋅σ on finite grid
+						ib = ia + di;
+						Ra = xyztor(p,ia); Rb = xyztor(p,ib); 
+						#println("δR$ax = $dR")
+						#println("Ra = $Ra")
+						#println("Rb = $Rb\n")
+						#σ = [0I(2), 0I(2), 1I(2), 0I(2)]
+						#pushHopping!(NNs, (p.vf*-im*ħ/q)*(1/(2*dR))⊗I(2), ia, ib, p)
+						t = zeros(ComplexF64,2,2)
+						#for ax = 1:3
+							#dR = abs(Rb[ax] - Ra[ax])
+							#if(dR ≈ 0)
+							#	println("Uh oh, some distances are 0...")
+							#	println("di = $di")
+							#end
+						δ = Rb - Ra
+						t = -im*(p.vf*ħ/q)*(1/2)⊗(1/norm(δ))*sum([(δ[i]/abs(δ[i]))*σ[i] for i = 1:3])
+						#println("t=$t")
+						#end
+						pushHopping!(NNs, t, ia, ib, p)
+						#end
+						#end
 					end
 				end
 			end
@@ -176,24 +161,20 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 			NN.edge = true
 			#println("$(NN.N)")
 		end
+		if(norm(NN.t) > 10^-9)
+			
+			#println("N = $(NN.N)")
+			#println("ia = $(NN.ia)")
+			#println("ib = $(NN.ib)")
+			#println("b = $(NN.b)")
+			#println("t = $(NN.t)")
+			#println("")
+		end
 		#println("N = $(NN.N)")
 		#println("edge? = $(NN.edge)")
 	end
 	return NNs
 end
 
-
-function pruneHoppings(NNs, type)
-	if("x" ∈ type)
-		deleteat!(NNs, findall(NN->NN.N[1]!=0,NNs))
-	end
-	if("y" ∈ type)
-		deleteat!(NNs, findall(NN->NN.N[2]!=0,NNs))
-	end
-	if("z" ∈ type)
-		deleteat!(NNs, findall(NN->NN.N[3]!=0,NNs))
-	end
-	return NNs
-end
 
 end
