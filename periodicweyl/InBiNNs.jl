@@ -39,12 +39,13 @@ end
 
 function RvalsGen(p)
 	N = p.n*p.nsite
-	R = zeros(N)
+	R = Vector{Vector{Float64}}(undef,N)
 	for ix = 0:(p.nx-1)
-		for iy = 0:(p.nx-1)
-			for iz = 0:(p.nx-1)
+		for iy = 0:(p.ny-1)
+			for iz = 0:(p.nz-1)
 				for isite = 0:(p.nsite-1)
-					iR = Int(1 + isite + ix*p.nsite + iy*p.nx*p.nsite + iz*p.ny*p.nz*p.nsite)
+					iR = Int(1 + isite + ix*p.nsite + iy*p.nx*p.nsite + iz*p.ny*p.nx*p.nsite)
+					println("$ix $iy $iz $isite iR $iR")
 					ivec = Int.([ix,iy,iz,isite])
 					R[iR] = xyztor(p,ivec)
 				end
@@ -157,6 +158,10 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 							δ = Rb - Ra
 							#t = (1/(2*δ[ax]))*σ[ax]
 							t = -im*(p.vf*ħ/q)*(1/(2*δ[ax]))*σ[ax]
+							if(any(isnan,t)==true)
+								throw(DomainError(t, "Something broken in hamiltonian definition! Returning NaN"))
+								return
+							end
 							pushHopping!(NNs, t, ia, ib, p)
 						end
 					end

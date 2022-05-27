@@ -37,11 +37,12 @@ function runBands(p,nk, H, Q, proj::Bool=false,arpack::Bool=false,save=false,pat
 	#klist = ["Γ","M","X","Γ","A","M","X","R","X","Γ","Z"]
 	#klist = ["X₁","Γ","Z"]
 	#klist = ["X","Γ","-X"]
-	klist = ["Γ","M","X","Γ","-X"]
+	klist = ["Γ","M","X₁","Γ","-X₁"]
+	#klist = ["Γ","M","X₁","Γ","-X₁","X₂","Γ","-X₂"]
 	#klist = ["Γ","M","X","Γ","-X","Γ","Z","A","R","Z"]
 
 	# generates k-name -> k-value correspondence 
-	klist = p.klist
+	#klist = p.klist
 	kdict = p.kdict
 
 	println("\n========= Entering Bands calculation =========")
@@ -186,7 +187,7 @@ function main(p,A=A,save=false,path="")
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
 	Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₁
-	runBands(p,2^6,H,Q,true,p.arpack)
+	runBands(p,2^7,H,Q,true,p.arpack)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")

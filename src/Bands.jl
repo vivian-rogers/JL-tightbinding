@@ -58,9 +58,9 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	#λ_test, evecs_test = eig(testH, 1E-12)
 	#arpack = true # small hamiltonian, few bands
 	if(arpack)
-		maxiter = 4000
+		maxiter = 8000
 		#nE = 128
-		nE = 6*Int(floor(log2(size(testH)[1])))
+		nE = 8*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
 			println("Heads up! $nE / $nEig eigvls are being calculated")
@@ -91,7 +91,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 		#show(H)
 		#Eofk, Estatek = eigs(Hermitian(H))
 		#Eofk, Estatek = eigen(H)
-		print("$(round.(k,sigdigits=4))... ")
+		print("$(round.(k,sigdigits=3))..")
 		#if(norm(H) < 0.01 || k⋅k≈0)
 		#	Estatek = (1/√(nEig))*ones(nEig,nE); Eofk = zeros(nE)
 		if(arpack && !(k⋅k≈-1))

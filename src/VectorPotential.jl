@@ -16,7 +16,7 @@ using ForwardDiff
 using nearestNeighbors
 #using Interpolations
 
-export peaksNS, NSprofileGen, pseudoBstats, closestPeak, strain, testhess, hoppingModification
+export peaksNS, NSprofileGen, pseudoBstats, closestPeak, Bvals, strain, testhess, hoppingModification, checkPeriodicField, zeeman
 
 function closestPeak(λ)
 	Rarray = Rvals(λ) 
@@ -98,9 +98,10 @@ function testhess(z)
 end
 
 
-function hoppingModification(pureNNs, A)
+function hoppingModification(pureNNs, A::Function)
 	NNs = deepcopy(pureNNs)
 	# loop over all of the nearest-neighbor bonds
+	AofR = zeros(3)
 	for NN in NNs
 		# approximate bond as halfway between NNs, from A site
 		R = NN.ra + (1/2)*NN.r
@@ -108,48 +109,72 @@ function hoppingModification(pureNNs, A)
 		ϕ = 2*π/Φ₀
 		
 		# integrate -- approximate ∫A⋅dL = 𝐀⋅𝛅
-		A = A(R)
+		AofR = A(R)
 		#apply the phase shift: 
-		∫AdL = A⋅NN.r
+		∫AdL = AofR⋅NN.r
 		#NN.t = t*exp(im*ϕₚₛ)
 		NN.t = exp(im*ϕ*∫AdL)*NN.t
 	end
 	return NNs
 end
 
+function B(A::Function,R::Vector{Float64})
+	return curl(A,R)
+end
 
 function checkPeriodicField(A::Function, p, npts::Int=30)
 	for i = 1:npts
 		δ = rand()*p.SLa₁ + rand()*p.SLa₂ + rand()*p.SLa₃
-		A₀ = A(δ)
-		cutoff = sum(A(δ).^2)*10^-3
-		for ix = -2:2
-			for iy = -2:2
-				A₁ = A(δ .+ ix*p.SLa₁ .+ iy*p.SLa₂)
-				if(sum((A₀ - A₁).^2) > cutoff)
-					println("Field not periodic! Check A(R) definition.")
+		B₀ = B(A,δ)
+		cutoff = sum(B(A,δ).^2)*10^-4
+		n = 1
+		for ix = -n:n
+			for iy = -n:n
+				B₁ = B(A,δ .+ ix*p.SLa₁ .+ iy*p.SLa₂)
+				if(sum((B₀ - B₁).^2) > cutoff)
+					println("B₀ = $(round.(B₀,sigdigits=4)), B₁ = $(round.(B₁,sigdigits=4))")
+					println("B Field not periodic! Check A(R) definition.")
 					println("Disregard if modelling finite device")
-					return false
+					#return false
 				end
 			end
 		end
 	end
 	println("Gauge potential appears periodic with superlattice.")
+	println("Net flux may still be nonzero, should consider checking this.")
 	println("May proceed with A(R) for superlattice modelling.")
 	return true
 end
 
-function ∇×(f::Function, R::Vector{Float64},δ::Float64 = 10^-12)
+function curl(f::Function, R::Vector{Float64},δ::Float64 = 10^-14)
 	δ1 = [1;0;0]*δ; δ2 = [0;1;0]*δ; δ3 = [0;0;1]*δ;
 	curlx = f(R+δ2)[3] - f(R-δ2)[3] - f(R+δ3)[2] + f(R-δ3)[2]
 	curly = f(R+δ3)[1] - f(R-δ3)[1] - f(R+δ1)[3] + f(R-δ1)[3]
-	curlz = f(R+δ1)[2] - f(R-δ1)[2] - f(R+δ2)[1] + f(R-δ2)[2]
+	curlz = f(R+δ1)[2] - f(R-δ1)[2] - f(R+δ2)[1] + f(R-δ2)[1]
 	return [curlx; curly; curlz]*(2*δ)^-1
+end
 
-function B•σ(A::Function, R::Vector{Float64}, norb::Int)
-	B =  ∇×.(A,R)
+function Bvals(A::Function, Rvals::Vector{Vector{Float64}})
+	return curl.(A,Rvals)
+	#return B = [curl(A,R) for R in Rvals]
+end
 
-	return (B[1]*σ₁ .+ B[2]*σ₂ .+ B[3]*σ₃)
+function zeeman(Bvals::Vector{Vector{Float64}},  p)
+	# only defined for S-like orbitals with lz = 0
+	N = p.n*p.nsite*p.norb*2
+	#for i = 1:N
+	zeeman = spzeros(ComplexF64, N, N)
+	C = ħ/(2*m₀) #sans q factor -> eV
+	for i in eachindex(Bvals)
+		site = zeros(p.n*p.nsite*p.norb); site[i] = 1
+		B = Bvals[i]
+		#show(size(zeeman))
+		#println("now size of additional site")
+		#show(size(site⊗σ₁))
+		zeeman .+= 2*C*Diagonal(site)⊗(B[1]*σ₁ .+ B[2]*σ₂ .+ B[3]*σ₃)
+	end
+	return zeeman
+end
 
 function strain(λ,Δh0,fᵤ,σ,z)
 	

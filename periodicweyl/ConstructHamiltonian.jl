@@ -37,35 +37,26 @@ function Hgen(p,A::Function)
 	NNs = genNNs(p)
 	#Rvals = RvalsGen(p)⊗I(p.norb) 
 	NNs = pruneHoppings(NNs,p.prune) # cut off the periodic boundary hoppings
-	NNs = hoppingModification(NNs,A) # apply the peierls phase
+	#NNs = hoppingModification(NNs,A) # apply the peierls phase
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
 	H_onsite = I(p.n)⊗I(p.nsite)⊗Diagonal([ϵ; -ϵ])⊗I(2)
-	H₀ .+= Diagonal(rand(Float64,p.n*p.nsite*p.norb*2).-0.5)*10^-3
+	Rvals = RvalsGen(p)
+	Bfield = Bvals(A,Rvals)
+	#H₀ = 
+	println("B field = $Bfield T")
+	Hᵦ = zeeman(Bfield,p)
+	#println("Zeeman splitting hamiltonian = $Hᵦ")
+	#show(Hᵦ)
+	#H₀ .+= Diagonal(rand(Float64,p.n*p.nsite*p.norb*2).-0.5)*10^-3
 	#H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
 	#H₀ = sparse(H_hop .- μ*I(N) .+ H_U₂ .+ Himp) # add on Hpot, Hcharge, H+U, etc here
 	
-	#=function H_pre(k,B) #pre-scf
-		H_edge = spzeros(ComplexF64, N,N)
-		for NN in edgeNNs
-			H_edge[NN.a,NN.b] += NN.t*exp(im*k⋅(NN.N[1]*a₁+NN.N[2]*a₂)) 
-		end
-		return dropzeros(H_edge.+Hstatic)
-	end=#
-	
-	# this may be bad, take out later
-	#B = 5
-	#H_U = Diagonal(deepcopy(U*(min.(n₊,n₋)))) # set the avg energy around 0
-	#H_B = Diagonal(deepcopy(B*(n₊.-n₋)))
-	#function H(k::Array{Int64,1})
-
-	
-
-	# messing around with magnetic field
-	β = 0.1*eV*[1,0,0]
-	Hᵦ = I(p.nsite)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
+	H₀ = sparse(H₀ .+ H_onsite .+ Hᵦ)
+	#β = 0.02*eV*[1,0,0]
+	#Hᵦ = I(p.nsite)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
 	function H(k)
 		# hamiltonian describing the edges
-		Hₑ = zeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
+		Hₑ = spzeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
 		for NN in edge_NNs
 			Δϕ = exp(im*k⋅(p.A*NN.N))
 			#Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
@@ -90,7 +81,8 @@ function Hgen(p,A::Function)
 		#	println("Hₑ = $Hₑ")
 		#	println("H₀ = $H₀")
 		#end
-		return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
+		return dropzeros(H₀ .+ Hₑ)
+		#return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
 		#return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)
 	end
 	println("Great, SCF converged. Returning H(k).\n")

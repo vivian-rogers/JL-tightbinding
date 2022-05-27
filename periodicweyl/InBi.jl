@@ -4,6 +4,7 @@ push!(LOAD_PATH, "../src/")
 module InBi
 using Driver
 using Constants
+using SLutils
 
 export params, kdictGen, genSL
 # electronic properties
@@ -30,9 +31,10 @@ b₁ = B[:,1]; b₂ = B[:,2]; b₃ = B[:,3]
 nx = 1; ny = 1; nz = 1; n = nx*ny*nz
 
 function kdictGen(A)
-	B = transpose(π*inv(A))
+	#B = transpose(π*inv(A))
 	# changed for weird def of weyl BZ
-	#B = transpose(2*π*inv(A))
+	B = transpose(2*π*inv(A))
+	#η = (1-a*
 	kdict = Dict(
 		    "Γ" => B*[ 0  ;    0;   0],
 		    "A" => B*[ 1/2;  1/2; 1/2],
@@ -40,8 +42,10 @@ function kdictGen(A)
 		    #"M" => B*[   0;  1/2; 1/2],
 		    "Z" => B*[   0;    0; 1/2],
 		    "-Z" => B*[  0;    0;-1/2],
-		    "X" => B*[   1/2;    0; 0],
-		    "-X" => B*[  -1/2;    0;0],
+		    "X₂" => B*[   0;    1/2; 0],
+		    "-X₂" => B*[  0;  -1/2;0],
+		    "X₁" => B*[   1/2;    0; 0],
+		    "-X₁" => B*[  -1/2;    0;0],
 		    )
 		    #="Γ" => B*[ 0  ;    0;   0],
 		    "A" => B*[ 1/2;  1/2; 1/2],
