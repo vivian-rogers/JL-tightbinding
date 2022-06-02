@@ -9,6 +9,7 @@ using SparseArrays
 using Operators
 using Arpack
 using MaterialParameters
+using PlotStuff
 using UsefulFunctions
 using Printf
 using Constants
@@ -36,14 +37,36 @@ function Hgen(p,A::Function)
 	#NN_hops = NNfromAtoms(NNAtoms)
 	NNs = genNNs(p)
 	#Rvals = RvalsGen(p)⊗I(p.norb) 
+	#println("NNs = $NNs")
 	NNs = pruneHoppings(NNs,p.prune) # cut off the periodic boundary hoppings
-	#NNs = hoppingModification(NNs,A) # apply the peierls phase
+	NNs = hoppingModification(NNs,A) # apply the peierls phase
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
-	H_onsite = I(p.n)⊗I(p.nsite)⊗Diagonal([ϵ; -ϵ])⊗I(2)
+	H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
-	Bfield = Bvals(A,Rvals)
+	
+	# for plotting field at surface
+	println("Plotting field at surface...")
+	Rsurf = Vector{Float64}[]
+	for Rval in Rvals
+		if(Rval[3] ≈ (p.nz-1)*p.a₃[3])
+			push!(Rsurf,Rval)
+		end
+	end
+	Bsurf = Bvals(A,Rsurf)
+	#println("Bsurf = $(Bsurf[:][:][3])")
+	Bfield = Bvals(A,Rvals); Nsites = p.n*p.nsite
+	avgB = sum(Bfield)*Nsites^-1
+	Bfield = [Bfield[i] .- avgB for i = 1:Nsites]
+	#Bfield = Bfield .- avgB
+	plotScatter(Rsurf,[B[3] .- avgB[3] for B in Bsurf])
+	#plotScatter(Rsurf,Bvals(A,Rsurf)[3])
+	#plotPoints(Rsurf,Bvals(A,Rsurf)[3])
+	#plotFunct(Rsurf,Bvals(A)[3])
+	println("Calculating B field in slab...")
 	#H₀ = 
-	println("B field = $Bfield T")
+	#println("B field = $Bfield T")
+	println("ΣB field = $(sum(Bfield)) T")
+	println("max B field = $(maximum(maximum.(Bfield))) T")
 	Hᵦ = zeeman(Bfield,p)
 	#println("Zeeman splitting hamiltonian = $Hᵦ")
 	#show(Hᵦ)
@@ -51,6 +74,7 @@ function Hgen(p,A::Function)
 	#H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
 	#H₀ = sparse(H_hop .- μ*I(N) .+ H_U₂ .+ Himp) # add on Hpot, Hcharge, H+U, etc here
 	
+	#H₀ = sparse(H₀ .+ Hᵦ)
 	H₀ = sparse(H₀ .+ H_onsite .+ Hᵦ)
 	#β = 0.02*eV*[1,0,0]
 	#Hᵦ = I(p.nsite)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
@@ -82,6 +106,7 @@ function Hgen(p,A::Function)
 		#	println("H₀ = $H₀")
 		#end
 		return dropzeros(H₀ .+ Hₑ)
+		#return dropzeros(Hᵦ)
 		#return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
 		#return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)
 	end

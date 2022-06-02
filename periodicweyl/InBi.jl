@@ -17,7 +17,8 @@ t₆ = 0.0*eV;# Bi-Bi 2nd NN hopping
 t₇ = 0.0*eV;# In-Bi further hoppings
 t₈ = 0.1*eV;# In-In 2nd nn vertical hoppings
 t₉ = 0.0*eV;# In-In px -px, py-py hoppings
-ε = 0.1*eV; ε₂ = 0.0*eV #onsite energy for In, Bi
+t = 1.0*eV; # In-Bi px-px,py-py
+ε = 0.0*eV; ε₂ = 0.0*eV #onsite energy for In, Bi
 
 # structural properties
 a = 5*Å; c = a
@@ -67,7 +68,7 @@ function kdictGen(A)
 end
 
 params = (
-	  t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
+	  t = t, t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
 	  vf = 10^6,
 	  ε = ε, 
 	  a₁ = a₁, a₂ = a₂, a₃ = a₃, A = A, a=a, b=a, c=c,
@@ -106,15 +107,16 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 		arpack = false
 	end
 	SLparams = (
-	SLa₁ = SLa₁, SLa₂ = SLa₂, SLa₃ = SLa₃,
-	#A = hcat(SLa₁,SLa₂,SLa₃),
-	A = newA,
-	nx = nx, ny = ny, nz = nz, n=nx*ny*nz,
-	kdict = kdictGen(newA),
-	runtype=runtype,
-	arpack=arpack,
-	prune=pruneHoppingType(runtype),
-	klist = ["Γ","M","X","Γ","-X"])
+		SLa₁ = newA[:,1], SLa₂ = newA[:,2], SLa₃ = newA[:,3],
+		#A = hcat(SLa₁,SLa₂,SLa₃),
+		A = newA,
+		nx = nx, ny = ny, nz = nz, n=nx*ny*nz,
+		kdict = kdictGen(newA),
+		runtype=runtype,
+		arpack=arpack,
+		prune=pruneHoppingType(runtype),
+		klist = ["Γ","M","X","Γ","-X"]
+	)
 	return merge(params,SLparams)
 end
 

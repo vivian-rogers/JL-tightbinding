@@ -8,7 +8,8 @@ using LinearAlgebra
 export pruneHoppingType, Agen
 
 function pruneHoppingType(runtype::String="")
-	if(runtype == "nanopillars")
+	if(runtype == "nanopillars" || "eggcarton")
+		#return []
 		return ["z"]
 	end
 	if(runtype == "domainwall")
@@ -24,12 +25,13 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 	if(runtype=="nanopillars")
 		function npA(R::Vector{Float64})
 			Aval = zeros(3)
-			n = 12
-			for i = -n:n
-				for j = -n:n
-					R₀ = i*p.SLa₁ .+ j*p.SLa₂ .+ p.SLa₃ .+ 5*p.a₃
-					#println("R₀ = $R₀, R = $R")
-					Aval += μ₀/(4*π) * (M₀*[0;0;1])×(R-R₀)/((R-R₀)⋅(R-R₀))
+			n = 20
+			for i = -n:(n+1)
+				for j = -n:(n+1)
+					R₀ = i*p.SLa₁ .+ j*p.SLa₂ .+ p.SLa₃ .+ 30*p.a₃
+					#println("R₀ = R₀")
+					#println("R₀ = $(round.(R₀,sigdigits=3)), R = $(round.(R,sigdigits=3))")
+					Aval += μ₀/(4*π) * (M₀*[0;0;1])×(R-R₀)/((R-R₀)⋅(R-R₀))^(3/2)
 				end
 			end
 			#println("A = $Aval")
@@ -59,18 +61,18 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 	elseif(runtype=="eggcarton")
 		# egg-carton type potential
 		function ecA(R::Vector{Float64})
-			B₀ = 1;
-			A₂ = 1;
+			B₀ = 8*100;
+			A₂ = norm(p.SLa₁)/(2*π);
 			for i = 1:2
 				A₂ *= sin(2*π*(R⋅p.A[:,i])/(p.A[:,i]⋅p.A[:,i]))
 			end
-			return B₀*[0; A₂; 0]
+			return B₀*[0; 0; A₂]
 		end
 		return ecA
 	elseif(runtype=="bulk")
 		function bA(R::Vector{Float64})
-			B₀ = 80 # Tesla
-			return [0;B₀*R[1];0]
+			B₀ = 1200 # Tesla
+			return [0;0;B₀*R[2]] # B₀ in +x
 		end
 		return bA
 	else

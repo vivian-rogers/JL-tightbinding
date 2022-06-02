@@ -85,13 +85,15 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 		# just for WSM calculations
 		#if(k⋅k ≈ 0)
 		#	H
-		#print("\n\nnk = ")
-		#show(k)
-		#print("\nH(k) = ")
-		#show(H)
+		print("\n\nnk = ")
+		show(k)
+		print("\nH(k) = ")
+		display(H)
+		
 		#Eofk, Estatek = eigs(Hermitian(H))
 		#Eofk, Estatek = eigen(H)
-		print("$(round.(k,sigdigits=3))..")
+		#print("$(round.(k,sigdigits=3)).. ")
+		#print("H = $H\n")
 		#if(norm(H) < 0.01 || k⋅k≈0)
 		#	Estatek = (1/√(nEig))*ones(nEig,nE); Eofk = zeros(nE)
 		if(arpack && !(k⋅k≈-1))

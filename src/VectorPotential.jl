@@ -146,17 +146,23 @@ function checkPeriodicField(A::Function, p, npts::Int=30)
 	return true
 end
 
-function curl(f::Function, R::Vector{Float64},δ::Float64 = 10^-14)
+function curl(f::Function, R::Vector{Float64},δ::Float64 = 10^-10)
 	δ1 = [1;0;0]*δ; δ2 = [0;1;0]*δ; δ3 = [0;0;1]*δ;
+	#println("A = $(f(R+rand(3))), R = $(R+rand(3))")
 	curlx = f(R+δ2)[3] - f(R-δ2)[3] - f(R+δ3)[2] + f(R-δ3)[2]
+	println("Bₓ = $curlx / 2*$δ")
 	curly = f(R+δ3)[1] - f(R-δ3)[1] - f(R+δ1)[3] + f(R-δ1)[3]
 	curlz = f(R+δ1)[2] - f(R-δ1)[2] - f(R+δ2)[1] + f(R-δ2)[1]
 	return [curlx; curly; curlz]*(2*δ)^-1
 end
 
 function Bvals(A::Function, Rvals::Vector{Vector{Float64}})
-	return curl.(A,Rvals)
-	#return B = [curl(A,R) for R in Rvals]
+	#println("A = ")
+	#display(A)
+	#return curl.(A,Rvals)
+	Bs = [curl(A,R) for R in Rvals]
+	#show(Bs)
+	return Bs 
 end
 
 function zeeman(Bvals::Vector{Vector{Float64}},  p)
@@ -166,12 +172,12 @@ function zeeman(Bvals::Vector{Vector{Float64}},  p)
 	zeeman = spzeros(ComplexF64, N, N)
 	C = ħ/(2*m₀) #sans q factor -> eV
 	for i in eachindex(Bvals)
-		site = zeros(p.n*p.nsite*p.norb); site[i] = 1
+		site = zeros(p.n*p.nsite); site[i] = 1
 		B = Bvals[i]
 		#show(size(zeeman))
 		#println("now size of additional site")
 		#show(size(site⊗σ₁))
-		zeeman .+= 2*C*Diagonal(site)⊗(B[1]*σ₁ .+ B[2]*σ₂ .+ B[3]*σ₃)
+		zeeman .+= 2*C*Diagonal(site)⊗I(p.norb)⊗(B[1]*σ₁ .+ B[2]*σ₂ .+ B[3]*σ₃)
 	end
 	return zeeman
 end
