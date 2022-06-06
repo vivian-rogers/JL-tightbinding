@@ -57,7 +57,10 @@ S² = [
 S₁ = (1/2)*σ₁; S₂= (1/2)*σ₂; S₃ = (1/2)*σ₃; 
 S = cat(S₁,S₂,S₃, dims = 3);
 
-
+function zpos(Rvals::Vector{Vector{Float64}})
+	zmax = maximum([R[3] for R in Rvals])
+	return Diagonal([(R[3]-zmax)/nm for R in Rvals])
+end
 
 #	s	py	px	pz	dx2-y2	dyz	dxy	dz2	dzx
 L2 =	[0, 	1,	1,	1,	2,	2,	2,	2,	2]
