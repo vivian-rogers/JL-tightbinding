@@ -168,7 +168,8 @@ function plotBands(klist, nk, E, projStates, name="")
 		Projvals = collect(projStates[:,iE])
 		#Projvals = collect(projStates[:,iE])
 		#scatter(indices,Evals,c=Projvals, s=0.9)
-		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9, vmin = -1, vmax = 1)
+		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9)
+		#PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9, vmin = -1, vmax = 1)
 		#scatter(indices,Evals,c=Projvals, vmin=0, vmax=1,s=0.9)
 		#display(plot!(indices,Evals))
 	end
@@ -211,6 +212,7 @@ function plotScatter(R,z,xlab="",ylab="",name="",cmap="inferno",xyscale=(1/nm),z
 	height = C*dy/dx
 	fig, ax = PyPlot.subplots();
 	#ax.plot(x,y)
+	#zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=z);
 	zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]));
 	PyPlot.xlabel(xlab);
 	#fig.colorbar(zplot, ax=ax);
