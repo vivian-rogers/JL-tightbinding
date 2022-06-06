@@ -85,7 +85,7 @@ function genLatSL(p,SL1::Vector{Int},SL2::Vector{Int},SL3::Vector{Int})
 	return SLa₁, SLa₂, SLa₃
 end
 
-function pruneHoppingType(runtype="")
+#=function pruneHoppingType(runtype="")
 	if(runtype == "nanopillars")
 		return ["z"]
 	end
@@ -96,9 +96,9 @@ function pruneHoppingType(runtype="")
 		return ["x","y","z"]
 	end
 	return []
-end
+end=#
 
-function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::Vector{Int},runtype::String="")
+function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::Vector{Int},runtype::String="",fieldtype="A")
 	SLa₁, SLa₂, SLa₃ = genLatSL(p,SL1,SL2,SL3)
 	newA = hcat(nx*p.SLa₁,ny*p.SLa₂,nz*p.SLa₃)
 	if(nx*ny*nz*p.norb*p.nsite > 64)
@@ -115,7 +115,8 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 		runtype=runtype,
 		arpack=arpack,
 		prune=pruneHoppingType(runtype),
-		klist = ["Γ","M","X","Γ","-X"]
+		klist = ["Γ","M","X","Γ","-X"],
+		fieldtype=fieldtype
 	)
 	return merge(params,SLparams)
 end

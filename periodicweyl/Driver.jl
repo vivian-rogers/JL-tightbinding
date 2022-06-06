@@ -176,7 +176,6 @@ function main(p,A=A,save=false,path="")
 	if(save) println("Saving outputs to $path\n") end
 
 	println("\n")
-	checkPeriodicField(A,p) # tells you if gauge field periodic with SL
 	println("Generating static hamiltonian...")
 	H = runSCF(p,A,save,path)
 
@@ -187,8 +186,9 @@ function main(p,A=A,save=false,path="")
 	
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
-	Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₁
-	runBands(p,2^7,H,Q,true,p.arpack)
+	#Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₁
+	Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
+	runBands(p,2^6,H,Q,true,p.arpack)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")

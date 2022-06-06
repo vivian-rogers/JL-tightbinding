@@ -14,6 +14,7 @@ using GMaterialParameters
 using Bands
 using ForwardDiff
 using nearestNeighbors
+using Distributed
 #using Interpolations
 
 export peaksNS, NSprofileGen, pseudoBstats, closestPeak, Bvals, strain, testhess, hoppingModification, checkPeriodicField, zeeman
@@ -98,11 +99,12 @@ function testhess(z)
 end
 
 
-function hoppingModification(pureNNs, A::Function)
-	NNs = deepcopy(pureNNs)
+function hoppingModification(NNs, A::Function)
+	#NNs = deepcopy(pureNNs)
 	# loop over all of the nearest-neighbor bonds
+	println("Applying Peierls phase substitution...")
 	AofR = zeros(3)
-	for NN in NNs
+	Threads.@threads for NN in NNs
 		# approximate bond as halfway between NNs, from A site
 		R = NN.ra + (1/2)*NN.r
 		Φ₀ = h/q;
@@ -112,6 +114,7 @@ function hoppingModification(pureNNs, A::Function)
 		AofR = A(R)
 		#apply the phase shift: 
 		∫AdL = AofR⋅NN.r
+		#println("ϕ = $(round(ϕ*∫AdL,sigdigits=4))")
 		#NN.t = t*exp(im*ϕₚₛ)
 		NN.t = exp(im*ϕ*∫AdL)*NN.t
 	end
@@ -123,34 +126,39 @@ function B(A::Function,R::Vector{Float64})
 end
 
 function checkPeriodicField(A::Function, p, npts::Int=30)
-	for i = 1:npts
-		δ = rand()*p.SLa₁ + rand()*p.SLa₂ + rand()*p.SLa₃
-		B₀ = B(A,δ)
-		cutoff = sum(B(A,δ).^2)*10^-4
-		n = 1
-		for ix = -n:n
-			for iy = -n:n
-				B₁ = B(A,δ .+ ix*p.SLa₁ .+ iy*p.SLa₂)
-				if(sum((B₀ - B₁).^2) > cutoff)
-					println("B₀ = $(round.(B₀,sigdigits=4)), B₁ = $(round.(B₁,sigdigits=4))")
-					println("B Field not periodic! Check A(R) definition.")
-					println("Disregard if modelling finite device")
-					#return false
-				end
-			end
-		end
-	end
-	println("Gauge potential appears periodic with superlattice.")
-	println("Net flux may still be nonzero, should consider checking this.")
-	println("May proceed with A(R) for superlattice modelling.")
-	return true
+        if(p.fieldtype=="β")
+                println("exchange-type field is used, periodicity implied")
+                return true
+        elseif(p.fieldtype=="A")
+            for i = 1:npts
+                    δ = rand()*p.SLa₁ + rand()*p.SLa₂ + rand()*p.SLa₃
+                    B₀ = B(A,δ)
+                    cutoff = sum(B(A,δ).^2)*10^-4
+                    n = 1
+                    for ix = -n:n
+                            for iy = -n:n
+                                    B₁ = B(A,δ .+ ix*p.SLa₁ .+ iy*p.SLa₂)
+                                    if(sum((B₀ - B₁).^2) > cutoff)
+                                            println("B₀ = $(round.(B₀,sigdigits=4)), B₁ = $(round.(B₁,sigdigits=4))")
+                                            println("B Field not periodic! Check A(R) definition.")
+                                            println("Disregard if modelling finite device")
+                                            return false
+                                    end
+                            end
+                    end
+            end
+            println("Gauge potential appears periodic with superlattice.")
+            println("Net flux may still be nonzero, should consider checking this.")
+            println("May proceed with A(R) for superlattice modelling.")
+            return true
+        end
+        return true
 end
 
 function curl(f::Function, R::Vector{Float64},δ::Float64 = 10^-10)
 	δ1 = [1;0;0]*δ; δ2 = [0;1;0]*δ; δ3 = [0;0;1]*δ;
 	#println("A = $(f(R+rand(3))), R = $(R+rand(3))")
 	curlx = f(R+δ2)[3] - f(R-δ2)[3] - f(R+δ3)[2] + f(R-δ3)[2]
-	println("Bₓ = $curlx / 2*$δ")
 	curly = f(R+δ3)[1] - f(R-δ3)[1] - f(R+δ1)[3] + f(R-δ1)[3]
 	curlz = f(R+δ1)[2] - f(R-δ1)[2] - f(R+δ2)[1] + f(R-δ2)[1]
 	return [curlx; curly; curlz]*(2*δ)^-1
@@ -159,10 +167,11 @@ end
 function Bvals(A::Function, Rvals::Vector{Vector{Float64}})
 	#println("A = ")
 	#display(A)
+	return pmap(R-> curl(A,R), Rvals)
 	#return curl.(A,Rvals)
-	Bs = [curl(A,R) for R in Rvals]
+	#Bs = [curl(A,R) for R in Rvals]
 	#show(Bs)
-	return Bs 
+	#return Bs 
 end
 
 function zeeman(Bvals::Vector{Vector{Float64}},  p)
@@ -171,15 +180,25 @@ function zeeman(Bvals::Vector{Vector{Float64}},  p)
 	#for i = 1:N
 	zeeman = spzeros(ComplexF64, N, N)
 	C = ħ/(2*m₀) #sans q factor -> eV
-	for i in eachindex(Bvals)
+	#Bxvals = Bvals[:][1]
+	for ax = 1:3
+		BiVals = [B[ax] for B in Bvals]
+		#show(size(BiVals))
+		#println("Full array:")
+		#display(BiVals)
+		#show(size(Bvals))
+		#println($((BiVals))
+		zeeman .+= 2*C*Diagonal(BiVals)⊗I(p.norb)⊗σ[ax]
+	end
+		#=for i in eachindex(Bvals)
 		site = zeros(p.n*p.nsite); site[i] = 1
 		B = Bvals[i]
 		#show(size(zeeman))
 		#println("now size of additional site")
 		#show(size(site⊗σ₁))
 		zeeman .+= 2*C*Diagonal(site)⊗I(p.norb)⊗(B[1]*σ₁ .+ B[2]*σ₂ .+ B[3]*σ₃)
-	end
-	return zeeman
+	end=#
+	return sparse(zeeman)
 end
 
 function strain(λ,Δh0,fᵤ,σ,z)

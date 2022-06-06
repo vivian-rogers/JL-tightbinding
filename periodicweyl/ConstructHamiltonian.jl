@@ -39,34 +39,32 @@ function Hgen(p,A::Function)
 	#Rvals = RvalsGen(p)⊗I(p.norb) 
 	#println("NNs = $NNs")
 	NNs = pruneHoppings(NNs,p.prune) # cut off the periodic boundary hoppings
-	NNs = hoppingModification(NNs,A) # apply the peierls phase
+	if(p.fieldtype == "A")
+		NNs = hoppingModification(NNs,A) # apply the peierls phase
+	end
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
-	H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
+	H_onsite = 10^(-3)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2)
+	#H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
 	
 	# for plotting field at surface
-	println("Plotting field at surface...")
 	Rsurf = Vector{Float64}[]
 	for Rval in Rvals
 		if(Rval[3] ≈ (p.nz-1)*p.a₃[3])
 			push!(Rsurf,Rval)
 		end
 	end
-	Bsurf = Bvals(A,Rsurf)
-	#println("Bsurf = $(Bsurf[:][:][3])")
-	Bfield = Bvals(A,Rvals); Nsites = p.n*p.nsite
-	avgB = sum(Bfield)*Nsites^-1
-	Bfield = [Bfield[i] .- avgB for i = 1:Nsites]
-	#Bfield = Bfield .- avgB
-	plotScatter(Rsurf,[B[3] .- avgB[3] for B in Bsurf])
+	(Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals)
+        #Bfield = fieldUtils(p,A,Rsurf)
+	println("Generating field")
+	#Bsurf = zeros(size(Rsurf))
+	println("Plotting field at surface...")
 	#plotScatter(Rsurf,Bvals(A,Rsurf)[3])
 	#plotPoints(Rsurf,Bvals(A,Rsurf)[3])
 	#plotFunct(Rsurf,Bvals(A)[3])
 	println("Calculating B field in slab...")
 	#H₀ = 
 	#println("B field = $Bfield T")
-	println("ΣB field = $(sum(Bfield)) T")
-	println("max B field = $(maximum(maximum.(Bfield))) T")
 	Hᵦ = zeeman(Bfield,p)
 	#println("Zeeman splitting hamiltonian = $Hᵦ")
 	#show(Hᵦ)
@@ -118,6 +116,37 @@ end
 # all these functions are obsolete, but could be useful... especially chargeImpurities
 # we are not adding any onsite +U terms quite yet, so the SCF loops may be unnecessary. 
 
+function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vector{Vector{Float64}})
+        println("===== Calculating applied zeeman field properties =====")
+        checkPeriodicField(A,p) # tells you if gauge field periodic with SL
+        if(p.fieldtype == "A")
+                println("Field type = vector potential, applying onsite zeeman and peierls term")
+		Bfield = Bvals(A,Rvals); Nsites = p.n*p.nsite
+		avgB = sum(Bfield)*Nsites^-1
+		#avgB = [0;0;0]
+		Bfield = [Bfield[i] .- avgB for i = 1:Nsites]
+		
+		Bsurf = Bvals(A,Rsurf)
+                plotScatter(Rsurf,[B[1]-avgB[1] for B in Bsurf])
+                println("ΣB field = $(sum(Bfield)) T")
+                println("max B field = $(maximum(maximum.(Bfield))) T")
+		return (Bfield, Bsurf, avgB)
+		#return Bfield, Bsurf, avgB
+		#println("Bsurf = $(Bsurf[:][:][3])")
+		#Bfield = Bfield .- avgB
+	elseif(p.fieldtype == "β")
+                println("Field type = exchange, applying onsite exchange-like term")
+                avgB = [0;0;0]
+                coeff = ħ/m₀
+                Bfield = A.(Rvals)
+		Bsurf = A.(Rsurf)
+                println("Σβ field = $(sum(coeff*Bfield)) eV")
+                println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
+                plotScatter(Rsurf,[coeff*B[1] for B in Bsurf])
+		#return (Float64.(Bfield), Float64.(Bsurf), avgB)
+		return (Bfield, Bsurf, avgB)
+	end
+end
 #function makeH(H₀, edgeNNs, λ, k::Array{Int64,1})
 function makeH(H₀, edgeNNs, λ, k)
 	

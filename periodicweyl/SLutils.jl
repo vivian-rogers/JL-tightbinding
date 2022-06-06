@@ -5,10 +5,11 @@ module SLutils
 using Constants
 using LinearAlgebra
 
-export pruneHoppingType, Agen
+export pruneHoppingType, Agen, βgen
 
 function pruneHoppingType(runtype::String="")
-	if(runtype == "nanopillars" || "eggcarton")
+	println("runtype = $runtype")
+	if(runtype == "nanopillars" || runtype == "eggcarton" || runtype == "afmthinfilm" || runtype == "fmthinfilm")
 		#return []
 		return ["z"]
 	end
@@ -36,7 +37,7 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 			end
 			#println("A = $Aval")
 			#return [0;0;0]
-			return Aval
+			return Float64.(Aval)
 		end
 		return npA
 	elseif(runtype=="afmthinfilm")
@@ -44,9 +45,9 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 		function afA(R::Vector{Float64})
 			λ = 2*nm; B₀ = 200 # tesla
 			#By = cos(R[1]*π/p.a₁[1])*cos(R[2]*π/p.a₂[2])*(1/2)^(-(i-R[3] + p.SL₃[3])*λ)
-			A₃ = -(p.a₁[1]/π)*sin(R[1]*π/p.a₁[1])*cos(R[2]*π/p.a₂[2])*(1/2)^(R[3]/λ)
+			A₃ = -(p.a₁[1]/π)*sin(R[1]*π/p.a₁[1])*cos(R[2]*π/p.a₂[2])*(1/2)^(-(R[3]-p.SLa₃[3])/λ)
 			#A₃ = sin(2*π*(R⋅p.A[:,1])/(p.A[:,1]⋅p.A[:,1]))
-			println("R₀ = $R")
+			#println("R₀ = $R")
 			return B₀*[0; 0; A₃]
 		end
 		return afA
@@ -69,9 +70,9 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 			return B₀*[0; 0; A₂]
 		end
 		return ecA
-	elseif(runtype=="bulk")
+	elseif(runtype=="bulk" || runtype == "fmthinfilm")
 		function bA(R::Vector{Float64})
-			B₀ = 1200 # Tesla
+			B₀ = 4000 # Tesla
 			return [0;0;B₀*R[2]] # B₀ in +x
 		end
 		return bA
@@ -83,6 +84,35 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 	end
 end
 
-#main(params)
+
+function βgen(p,runtype::String,β₀::Float64=0.2*eV)
+	C = ħ/m₀
+	if(runtype=="fmdotsP")
+		function fmdotβ(R::Vector{Float64})
+			rad = 0.25; λ = 2*nm
+			SLa₁ = p.A[:,1]; SLa₂ = p.A[:,2]
+			coeff = C^-1*β₀*(2)^((p.A[3,3] - R[3])/λ)*[1;0;0]
+			for i = 0:1
+				for j = 0:1
+					R₀ = i*SLa₁ + j*SLa₂
+					if( (R[1]-R₀[1])^2 + (R[2]-R₀[2])^2 < (0.25*norm(SLa₂))^2)
+						return 1*coeff
+					end
+				end
+			end
+			if( (R[1]-0.5*SLa₁[1])^2 + (R[2]-0.5*SLa₂[2])^2 < (0.25*norm(SLa₂))^2)
+				return -1*coeff
+			else
+				return 0*coeff
+			end
+		end
+		return fmdotβ
+	else
+		function noβ(R::Vector{Float64})
+			return [0;0;0]
+		end
+	end
+end
+	#main(params)
 
 end

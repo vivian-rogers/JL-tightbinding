@@ -2,7 +2,7 @@
 
 module Bands
 using UsefulFunctions
-#using Arpack
+using ProgressBars
 using LinearAlgebra
 using Arpack
 #using Suppressor
@@ -60,7 +60,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	if(arpack)
 		maxiter = 8000
 		#nE = 128
-		nE = 8*Int(floor(log2(size(testH)[1])))
+		nE = 6*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
 			println("Heads up! $nE / $nEig eigvls are being calculated")
@@ -79,17 +79,23 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	#
 	#d = 100
 	#Logging.disable_logging(Logging.Warn)
-	for ik in 1:nk
-		k = kpts[ik]
-		H = Hofk(k)
+        iter = ProgressBar(1:nk)
+        for ik in iter
+                k = kpts[ik]
+                set_description(iter, string(print("k value: $(round.(k,sigdigits=3))")))	
+                #println("H(k) gen time:")
+                H = Hofk(k)
+                #@time H = Hofk(k)
 		# just for WSM calculations
 		#if(k⋅k ≈ 0)
 		#	H
+		
+		#=
 		print("\n\nnk = ")
 		show(k)
 		print("\nH(k) = ")
 		display(H)
-		
+		=#
 		#Eofk, Estatek = eigs(Hermitian(H))
 		#Eofk, Estatek = eigen(H)
 		#print("$(round.(k,sigdigits=3)).. ")
@@ -97,8 +103,11 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 		#if(norm(H) < 0.01 || k⋅k≈0)
 		#	Estatek = (1/√(nEig))*ones(nEig,nE); Eofk = zeros(nE)
 		if(arpack && !(k⋅k≈-1))
+                        #println("H(k) diagonalization time:")
 			Eofk, Estatek = eigs(H,nev=nE, which=:SM, maxiter=maxiter)
-		else
+			#@time Eofk, Estatek = eigs(H,nev=nE, which=:SM, maxiter=maxiter)
+		        #println("Done timing.")
+                else
 			Eofk, Estatek = eigen(Array(H))
 		end
 		#show(size(Estatek))
