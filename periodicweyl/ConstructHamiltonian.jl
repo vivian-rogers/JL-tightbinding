@@ -142,7 +142,7 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
 		Bsurf = A.(Rsurf)
                 println("Σβ field = $(sum(coeff*Bfield)) eV")
                 println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
-                plotScatter(Rsurf,[coeff*B[1] for B in Bsurf], "x position (nm)", "y position (nm)", "βₓ (eV)", "coolwarm",)
+                plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
 		#return (Float64.(Bfield), Float64.(Bsurf), avgB)
 		return (Bfield, Bsurf, avgB)
 	end

@@ -9,11 +9,11 @@ export pruneHoppingType, Agen, βgen
 
 function pruneHoppingType(runtype::String="")
 	println("runtype = $runtype")
-        if(runtype ∈ ["nanopillars", "eggcarton", "afmthinfilm", "fmthinfilm", "fmdotsP", "fmdotsaAP"])
+        if(runtype ∈ ["nanopillars", "eggcarton", "afmthinfilm", "fmthinfilm", "fmdotsP", "fmdotsAP", "blochwall" ])
 		#return []
 		return ["z"]
 	end
-	if(runtype == "domainwall")
+	if(runtype == "domainwallthin")
 		return ["z","y"]
 	end
 	if(runtype == "device")
@@ -70,7 +70,7 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 			return B₀*[0; 0; A₂]
 		end
 		return ecA
-	elseif(runtype=="bulk" || runtype == "fmthinfilm")
+	elseif(runtype=="bulk")
 		function bA(R::Vector{Float64})
 			B₀ = 4000 # Tesla
 			return [0;0;B₀*R[2]] # B₀ in +x
@@ -109,7 +109,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 		end
                 return fmdotPβ
 	elseif(runtype=="fmdotsAP")
-                function fmdotAPβ(R::Vector{Float64})
+        function fmdotAPβ(R::Vector{Float64})
 			rad = 0.25; λ = 2*nm
 			SLa₁ = p.A[:,1]; SLa₂ = p.A[:,2]
                         coeff = C^-1*β₀*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)*[1;0;0]
@@ -129,6 +129,24 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 			end
 		end
 		return fmdotAPβ
+	elseif(runtype=="blochwall")
+		function dwβ(R::Vector{Float64})
+			α = 101 # arbitrary constant to smooth square wave
+			λ = 2*nm # penetration depth of ferromagnetism into slab
+			zmag = cos(2*π*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
+			ymag = (1-zmag^2)*sign(sin(2*π*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+			return β₀*[0;ymag;zmag]*decay
+		end
+		return dwβ
+	elseif(runtype=="fmthinfilm")
+		λ = 2*nm
+		function fmβ(R::Vector{Float64})
+			λ = 2*nm
+			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+			return β₀*[0;1;0]*decay
+		end
+		return fmβ
 	else
 		function noβ(R::Vector{Float64})
 			return [0;0;0]

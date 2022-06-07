@@ -13,7 +13,7 @@ using UsefulFunctions
 using LinearAlgebra
 #main(params)
 
-nx = 16; ny = 16; nz = 2; 
+nx = 30; ny = 1; nz = 60; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 
@@ -22,7 +22,7 @@ SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 #runtype = "bulk"
 #runtype = "nanopillars"
 #runtype = "eggcarton"
-runtype = "fmdotsAP"
+runtype = "blochwall"
 fieldtype = "β"
 
 p = genSL(params, nx, ny, nz, SL1, SL3, SL3, runtype, fieldtype) # generate SL params
