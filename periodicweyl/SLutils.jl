@@ -9,7 +9,7 @@ export pruneHoppingType, Agen, βgen
 
 function pruneHoppingType(runtype::String="")
 	println("runtype = $runtype")
-	if(runtype == "nanopillars" || runtype == "eggcarton" || runtype == "afmthinfilm" || runtype == "fmthinfilm")
+        if(runtype ∈ ["nanopillars", "eggcarton", "afmthinfilm", "fmthinfilm", "fmdotsP", "fmdotsaAP"])
 		#return []
 		return ["z"]
 	end
@@ -88,11 +88,33 @@ end
 function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 	C = ħ/m₀
 	if(runtype=="fmdotsP")
-		function fmdotβ(R::Vector{Float64})
+		function fmdotPβ(R::Vector{Float64})
 			rad = 0.25; λ = 2*nm
 			SLa₁ = p.A[:,1]; SLa₂ = p.A[:,2]
-			coeff = C^-1*β₀*(2)^((p.A[3,3] - R[3])/λ)*[1;0;0]
-			for i = 0:1
+                        coeff = C^-1*β₀*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)*[1;0;0]
+                        #println("Coeff = $(round.(C*coeff,sigdigits=3)), R = $R")
+                        for i = 0:1
+				for j = 0:1
+					R₀ = i*SLa₁ + j*SLa₂
+					if( (R[1]-R₀[1])^2 + (R[2]-R₀[2])^2 < (0.25*norm(SLa₂))^2)
+						return 1*coeff
+					end
+				end
+			end
+			if( (R[1]-0.5*SLa₁[1])^2 + (R[2]-0.5*SLa₂[2])^2 < (0.25*norm(SLa₂))^2)
+				return 1*coeff
+			else
+				return 0*coeff
+			end
+		end
+                return fmdotPβ
+	elseif(runtype=="fmdotsAP")
+                function fmdotAPβ(R::Vector{Float64})
+			rad = 0.25; λ = 2*nm
+			SLa₁ = p.A[:,1]; SLa₂ = p.A[:,2]
+                        coeff = C^-1*β₀*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)*[1;0;0]
+                        #println("Coeff = $(round.(coeff,sigdigits=3)), R = $R")
+                        for i = 0:1
 				for j = 0:1
 					R₀ = i*SLa₁ + j*SLa₂
 					if( (R[1]-R₀[1])^2 + (R[2]-R₀[2])^2 < (0.25*norm(SLa₂))^2)
@@ -106,7 +128,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 				return 0*coeff
 			end
 		end
-		return fmdotβ
+		return fmdotAPβ
 	else
 		function noβ(R::Vector{Float64})
 			return [0;0;0]

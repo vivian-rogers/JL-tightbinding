@@ -1,5 +1,8 @@
-push!(LOAD_PATH, "./")
-push!(LOAD_PATH, "../src/")
+#push!(Base.load_path(), "./")
+#push!(Base.load_path(), "../src/")
+push!(LOAD_PATH, "./periodicweyl/")
+push!(LOAD_PATH, "./src/")
+
 
 module runs
 using InBi
@@ -10,7 +13,7 @@ using UsefulFunctions
 using LinearAlgebra
 #main(params)
 
-nx = 16; ny = 16; nz = 12; 
+nx = 16; ny = 16; nz = 2; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 
@@ -19,7 +22,7 @@ SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 #runtype = "bulk"
 #runtype = "nanopillars"
 #runtype = "eggcarton"
-runtype = "fmdotsP"
+runtype = "fmdotsAP"
 fieldtype = "β"
 
 p = genSL(params, nx, ny, nz, SL1, SL3, SL3, runtype, fieldtype) # generate SL params

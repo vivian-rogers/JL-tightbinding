@@ -34,7 +34,9 @@ function xyztor(p,ivec)
 		     #2 => p.A*[0.0; 0.5; 0.8975-0.5], #Bi 1
 		     #3 => p.A*[0.5; 0.0; 1.10248-0.5]) #Bi 2
 	δ = δdict[isite]
-	return p.a₁*ix + p.a₂*iy + p.a₃*iz + δ
+	R = p.a₁*ix + p.a₂*iy + p.a₃*iz + δ
+        #println("ivec = $ivec, Rpos = $R")
+        return R
 end
 
 function RvalsGen(p)
@@ -47,11 +49,16 @@ function RvalsGen(p)
 					iR = Int(1 + isite + ix*p.nsite + iy*p.nx*p.nsite + iz*p.ny*p.nx*p.nsite)
 					#println("$ix $iy $iz $isite iR $iR")
 					ivec = Int.([ix,iy,iz,isite])
-					R[iR] = xyztor(p,ivec)
-				end
+                                        Rval = xyztor(p,ivec)
+                                        R[iR] = deepcopy(Rval)
+                                        #if(Rval[3] > p.a₃[3]*(p.nz-1))
+                                        #    println("ivec = $ivec, Rpos = $Rval")
+                                        #end
+                                end
 			end
 		end
 	end
+        #println("maximum R = $(maximum([pos[3] for pos in R])), expected height = $((p.nz-1)*p.a₃[3])")
 	return R # needs ⊗I(p.norb)⊗I(2) for full (spinful) hilbert space
 end
 
