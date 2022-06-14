@@ -7,7 +7,7 @@ using Constants
 using LinearAlgebra
 
 
-export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra
+export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors
 
 function plotVec(x,yvecs, title)
 	nY = size(yvecs)[1]
@@ -205,6 +205,53 @@ function SaveFigure(fig,path,name="",type=".png")
 	close(fig)
 end
 
+function plot3Dvectors(Rvals,fvals,cvals,xlab="x position (nm)",ylab="y position (nm)", zlab="z position (nm)", name="",cmap="bwr",scale=(1/nm),zscale=1,save=false)
+	#dx = maximum.(R)-minimum.(R); dy = maximum.(R)-minimum.(R)
+	#C = 500
+	#width = C
+	#height = C*dy/dx
+	fig = figure(figsize=(7,5))
+	ax = fig.add_subplot(projection="3d");
+	##fig, ax = PyPlot.subplots();
+	#ax.plot(x,y)
+	#zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=z);
+        #maxnorm = maximum(norm.(fvals))
+        #fvals = [val/maxnorm for val in fvals]
+        #fvals = [val/maxnorm for val in fvals]
+        R = [Tuple(scale.*reduce(vcat,Rvals')[:,i]) for i = 1:3]
+        Δi = scale*[maximum(R[i]) - minimum(R[i]) for i=1:3]
+        s = 15*[1,1,1]
+        f = [s[i]*reduce(vcat,fvals')[:,i] for i = 1:3]
+        cvals = f[2]
+
+        #minc = minimum(cvals); maxc = maximum(cvals); cvals = (maxc-minc)^-1*(cvals.-minc)
+        #cnorm = PyPlot.cm.Normalize(vmin=min.(cvals), vmax=max.(cvals))
+        #fcmap = PyPlot.cm.get_cmap(cmap)
+        #fcmap = PyPlot.cm.ScalarMappable(norm=cnorm, cmap=cmap)
+        #vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],pivot="middle",normalize=true)
+        vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],pivot="middle",normalize=true)
+        #vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],pivot="middle",normalize=true,colors=fcmap(cvals))
+        #vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],pivot="middle",normalize=true,colors=fcmap(cvals))
+        #vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],pivot="middle",normalize=true,colors=fcmap(cvals))
+        #vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3],colors=fcmap(cvals),normalize=true)
+	#vectorfield = ax.quiver(R[1],R[2],R[3],f[1],f[2],f[3], cmap=cmap, c=cvals)
+	#zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]), cmap=cmap);
+        xmin = minimum(R[1]); xmax = maximum(R[1])
+        ymin = minimum(R[2]); ymax = maximum(R[2])
+        max = maximum([ymax,xmax]); min = maximum([ymin,xmin])
+        PyPlot.xlim(min,max)
+        PyPlot.ylim(-max,max)
+        PyPlot.xlabel(xlab);
+        PyPlot.ylabel(ylab);
+        PyPlot.zlabel(zlab);
+	#fig.colorbar(zplot, ax=ax);
+	#PyPlot.colorbar(vectorfield, label=name);
+        pygui()
+		#pygui(vectorfield)
+	#gcf()
+	#show(surf);
+end
+
 function plotScatter(R,z,xlab="",ylab="",name="",cmap="inferno",xyscale=(1/nm),zscale=1,save=false)
 	dx = maximum.(R)-minimum.(R); dy = maximum.(R)-minimum.(R)
 	C = 500
@@ -213,7 +260,7 @@ function plotScatter(R,z,xlab="",ylab="",name="",cmap="inferno",xyscale=(1/nm),z
 	fig, ax = PyPlot.subplots();
 	#ax.plot(x,y)
 	#zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=z);
-	zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]));
+	zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]), cmap=cmap);
 	PyPlot.xlabel(xlab);
 	#fig.colorbar(zplot, ax=ax);
 	PyPlot.colorbar(zplot, label=name);

@@ -115,7 +115,7 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 		runtype=runtype,
 		arpack=arpack,
 		prune=pruneHoppingType(runtype),
-		klist = ["-X₁","Γ","X₁","M","X₂","Γ"],
+		klist = ["M","Γ","X₁","M","X₂","Γ"],
 		fieldtype=fieldtype
 	)
 	return merge(params,SLparams)

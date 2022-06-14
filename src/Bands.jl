@@ -60,7 +60,8 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	if(arpack)
 		maxiter = 8000
 		#nE = 128
-		nE = 6*Int(floor(log2(size(testH)[1])))
+		nE = 8
+		#nE = 6*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
 			println("Heads up! $nE / $nEig eigvls are being calculated")
@@ -82,7 +83,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
         iter = ProgressBar(1:nk)
         for ik in iter
                 k = kpts[ik]
-                set_description(iter, string(print("k value: $(round.(k,sigdigits=3))")))	
+                #set_description(iter, string(print("k value: $(round.(k,sigdigits=3))")))	
                 #println("H(k) gen time:")
                 H = Hofk(k)
                 #@time H = Hofk(k)

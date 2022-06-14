@@ -187,7 +187,8 @@ function main(p,A=A,save=false,path="")
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
 	#Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₁
-	Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
+        Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
+        #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
 	runBands(p,2^6,H,Q,true,p.arpack)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)

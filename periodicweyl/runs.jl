@@ -1,5 +1,5 @@
-#push!(Base.load_path(), "./")
-#push!(Base.load_path(), "../src/")
+push!(LOAD_PATH, "./")
+push!(LOAD_PATH, "../src/")
 push!(LOAD_PATH, "./periodicweyl/")
 push!(LOAD_PATH, "./src/")
 
@@ -13,7 +13,7 @@ using UsefulFunctions
 using LinearAlgebra
 #main(params)
 
-nx = 30; ny = 1; nz = 60; 
+nx = 40; ny = 1; nz = 60; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 
@@ -22,7 +22,8 @@ SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 #runtype = "bulk"
 #runtype = "nanopillars"
 #runtype = "eggcarton"
-runtype = "blochwall"
+runtype = "neelwall"
+#runtype = "blochwall"
 fieldtype = "β"
 
 p = genSL(params, nx, ny, nz, SL1, SL3, SL3, runtype, fieldtype) # generate SL params
@@ -32,7 +33,7 @@ p = genSL(params, nx, ny, nz, SL1, SL3, SL3, runtype, fieldtype) # generate SL p
 if(fieldtype=="A")
 	A = Agen(p,runtype,10^8*4*μₑ)
 else
-	A = βgen(p,runtype,0.2*eV)
+	A = βgen(p,runtype,1.0*eV)
 end
 
 main(p,A)
