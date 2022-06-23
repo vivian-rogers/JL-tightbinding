@@ -15,7 +15,7 @@ using Operators
 
 a = 5*Å
 
-nx = 11; ny = 1; nz = 1;
+nx = 2; ny = 2; nz = 2;
 a₁ = a*[1;0;0]; a₂ = a*[0;1;0]; a₃ = a*[0;0;1]
 A = hcat(a₁,a₂,a₃)
 B = 2*π*transpose(inv(A))
@@ -23,11 +23,13 @@ gcut = [nx-1,ny-1,nz-1]
 ng = (gcut[1]*2 + 1)*(gcut[2]*2+1)*(gcut[3]*2+1)
 
 p = (
-          gcut=gcut, ng=ng, A = A, B = B, norb = 2, 
+          gcut=gcut, ng=ng, A = A, B = B, norb = 2, vf = 10^6, m = 0.5 
          )
 
-Mx = zeros(ComplexF64,ng); Mz = zeros(ComplexF64,ng)
-My = zeros(ComplexF64,ng); My[gtoi(p,[1,0,0])] = -im/2; My[gtoi(p,[-1,0,0])] = im/2; My[gtoi(p,[0,0,0])] = 0.2
+Mx = zeros(ComplexF64,ng); Mz = zeros(ComplexF64,ng); My = zeros(ComplexF64,ng); 
+Mz[gtoi(p,[0,0,0])] = 1;
+#My[gtoi(p,[1,0,0])] = -im/2; My[gtoi(p,[-1,0,0])] = im/2; 
+#Mz[gtoi(p,[1,0,0])] = 1/2; Mz[gtoi(p,[-1,0,0])] = +1/2;
 # ah! a sin wave periodic with the lattice, magnitude 1
 
 function kdictGen(A)
@@ -49,15 +51,16 @@ end
 klist = ["M","Γ","X₁","M","X₂","Γ"]
 
 println("Generating periodic field hamiltonian")
-H = Hβgen(p,[Mx,My,Mz])
+H = ConstructHamiltonian(p,[Mx,My,Mz])
+#H = Hβgen(p,[Mx,My,Mz])
 
-nk = 2^9
+nk = 2^6
 println("Getting eigenvalues of 2D weyl lattice between k = ")
 show(klist)
 println("...")
 E, Estates = getBands(klist, kdictGen(A), nk, a, H)
 #display(27.2*E)
-Q = I(ng)⊗I(p.norb)⊗σ₂
+Q = 2*I(ng)⊗I(p.norb)⊗σ₃
 
 projStates = expectedValue(Q ,Estates)
 plotBands(klist,nk,E, projStates)

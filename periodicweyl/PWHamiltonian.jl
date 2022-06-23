@@ -2,6 +2,9 @@ module PWHamiltonian
 
 using LinearAlgebra
 using SparseArrays
+using UsefulFunctions
+using Constants
+using Operators
 
 export gtoi, Hβgen, ConstructHamiltonian
 
@@ -31,10 +34,11 @@ function overlap(p,f::Vector{ComplexF64},gvecs::Vector{Vector{Int}},gvec::Vector
         for g in gvecs
             prod = im
             for ax = 1:3
-                θ = k⋅p.A[:,ax] + 2*π*(g[ax] - gvec[ax])
+                θ = 2*π*(g[ax] - gvec[ax])
+                #θ = k⋅p.A[:,ax] + 2*π*(g[ax] - gvec[ax])
                 #println("θ = $θ")
                 if(!(θ≈0))
-                        prod *= im*(exp(-im*θ) - 1)/(θ)
+                        prod *= (exp(-im*θ) - 1)/(θ)
                 end
             end
             sum += prod*f[gtoi(p,gvec)]
@@ -44,9 +48,14 @@ end
 
 function ConstructHamiltonian(p,M)
     Hβ = Hβgen(p,M)
+    Hfree = freeElectron(p)
+    Hweyl = weylH(p)
     function H(k::Vector{Float64})
-        Hᵦ = Hβ(k)
-        return Hᵦ
+        #H =  Hweyl(k)
+        H =  Hweyl(k) .+ I(p.ng*p.norb)⊗σ₂
+        #H =  Hfree(k) .+ I(p.ng*p.norb)⊗σ₃
+        #H = Hβ(k) .+ Hfree(k) .+ 2*Diagonal(ones(p.ng*2*p.norb))
+        return H
     end
 end
 
@@ -56,13 +65,51 @@ function gGrid(p)
             for gy = -p.gcut[2]:p.gcut[2] 
                 for gz = -p.gcut[3]:p.gcut[3]
                     gvec = [gx;gy;gz]
-                    display(gvec)
+                    #display(gvec)
                     push!(gvecs,gvec)
                 end
             end
         end
         return gvecs
 end
+
+function weylH(p)
+    gvecs = gGrid(p)
+    function Hweyl(k::Vector{Float64})
+        H = spzeros(ComplexF64,p.ng*p.norb*2,p.ng*p.norb*2)
+        # build up a tridiagonal matrix corresponding to the diagonals in the weyl hamiltonian
+        # in hilbert space |g>⊗|spin>
+        upper = zeros(ComplexF64,p.ng*2-1); diag = zeros(ComplexF64,p.ng*2); lower = zeros(ComplexF64,p.ng*2-1)
+        diracterm = Vector{Matrix}(undef,p.ng)
+        for ig in eachindex(gvecs)
+            G = gvecs[ig]
+            gpos = zeros(p.ng); gpos[ig] = 1; gpos = Diagonal(gpos)
+            effk = k+p.B*G
+            weylAtK = zeros(ComplexF64,2,2)
+            for ax = 1:3
+                weylAtK .+= effk[ax]*σ[ax]
+            end
+            H .+= sparse(gpos⊗τ₁⊗weylAtK)
+        end
+        return (p.vf*(ħ/q)*H.+p.m*τ₃⊗I(p.ng*2))
+    end
+    return Hweyl
+end
+
+function freeElectron(p)
+    gvecs = gGrid(p)
+    function Hfree(k::Vector{Float64})
+        H = zeros(p.ng)
+        for g in gvecs
+            E = ħ^2*norm(p.B*g + k)^2/(2*m₀*q)
+            gi = gtoi(p,g)
+            H[gi] = deepcopy(E)
+        end
+        return Diagonal(H)⊗I(p.norb)⊗I(2)
+    end
+    return Hfree
+end
+
 
 function Hβgen(p,M)
     gvecs = gGrid(p)
@@ -81,10 +128,11 @@ function Hβgen(p,M)
                         if(mi < 3) # a little bit of jank
                             startspin = mod(ispin+1,2)
                         end
+                        spindict = Dict([0,1]=>1,[0,2]=>-im,[0,3]=>1,[1,1]=>1,[1,2]=>im,[1,3]=>-1)
                         aivec = deepcopy(gvec); aivec[5] = startspin
                         ai = gvectoi(p,aivec)
                         bi = gvectoi(p,gvec)
-                        Hb[ai,bi] += innerprod
+                        Hb[ai,bi] += innerprod*spindict[[ispin,mi]]
                     end
                 end
             end
