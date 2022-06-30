@@ -52,8 +52,8 @@ function ConstructHamiltonian(p,M)
     Hweyl = weylH(p)
     function H(k::Vector{Float64})
         #H =  Hweyl(k)
-        H =  Hweyl(k) .+ I(p.ng*p.norb)⊗σ₂
-        #H =  Hfree(k) .+ I(p.ng*p.norb)⊗σ₃
+        #H =  Hweyl(k) .+ I(p.ng*p.norb)⊗σ₂
+        H =  Hfree(k) .+ 0.1*I(p.ng*p.norb)⊗σ₃
         #H = Hβ(k) .+ Hfree(k) .+ 2*Diagonal(ones(p.ng*2*p.norb))
         return H
     end

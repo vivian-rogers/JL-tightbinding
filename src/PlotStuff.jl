@@ -6,8 +6,7 @@ using ColorSchemes
 using Constants
 using LinearAlgebra
 
-
-export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors
+export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors, plotMat
 
 function plotVec(x,yvecs, title)
 	nY = size(yvecs)[1]
@@ -44,11 +43,39 @@ end
 		
 
 	
+function plotMat(Z,xlab="",ylab="",name="")
+	#nY = size(yvecs)[1]
+	#for i = 1:nY
+        pyplot()
+        heatmap(Z,cmap="inferno",xlabel=xlab,ylabel=ylab)
+	#w, h = PyPlot.figaspect(2.)
+	#fig = figure(figsize=(w, h))
+    	#ax = fig.add_subplot(111)
+    	#ax.set_title(name)
+    	#cbar.set_label(zlabel)
+    	#ax.set_xlabel(xlab)
+    	#ax.set_ylabel(ylab)
+    	#fig = PyPlot.imshow(Z, cmap="cividis")
+    	#fig = PyPlot.imshow(Z, cmap="cividis",vmin = 0, vmax = 1, origin='lower',interpolation='none')
+    	#fig = PyPlot.imshow(Z, cmap="cividis",vmin = 0, vmax = 1, origin="lower",interpolation="none", aspect="auto", extent=[xmin,xmax,ymin,ymax])
+    	#divider = PyPlot.make_axes_locatable(ax)
+    	#cax = divider.append_axes("right", size="5%", pad=0.05)
+    	#PyPlot.colorbar(fig, cax=cax)
+	#PyPlot.colorbar(label=name);
+	#colorbar()
+	#=fig, ax = PyPlot.subplots();
+	PyPlot.matshow(Arr2D)
+	PyPlot.ylabel(ylab);
+	PyPlot.xlabel(xlab);
+	#title(title)=#
+	gui()
+end
 
 function plot2D(Z,ymin=-4,ymax=4,xlab="",ylab="",name="")
 	#nY = size(yvecs)[1]
 	#for i = 1:nY
-	xmin = 0
+        pyplot()
+        xmin = 0
 	xmax = size(Z)[2]
 	
 	imshow(Z,cmap="cividis")
@@ -66,13 +93,13 @@ function plot2D(Z,ymin=-4,ymax=4,xlab="",ylab="",name="")
     	#cax = divider.append_axes("right", size="5%", pad=0.05)
     	#PyPlot.colorbar(fig, cax=cax)
 	#PyPlot.colorbar(label=name);
-	colorbar()
+	#colorbar()
 	#=fig, ax = PyPlot.subplots();
 	PyPlot.matshow(Arr2D)
 	PyPlot.ylabel(ylab);
 	PyPlot.xlabel(xlab);
 	#title(title)=#
-	gcf()
+	gui()
 end
 
 function plotDOS(x,y,xlab="",ylab="")
@@ -87,7 +114,24 @@ function plotDOS(x,y,xlab="",ylab="")
 	gcf()
 end
 
-function plot1D(x,y,xlab="",ylab="")
+function plot1D(x,y,xlab="",ylab="",xmin::Float64=0.0,xmax::Float64=1.0,ymin::Float64=-1.0,ymax::Float64=1.0)
+	#nY = size(yvecs)[1]
+	#for i = 1:nY
+        Plots.plot(x,y,xlabel=xlab,ylabel=ylab)
+        ylim(ymin,ymax)
+        xlim(xmin,xmax)
+        gui()
+        #fig, ax = PyPlot.subplots();
+	#PyPlot.plot(x,y)
+	#end
+	#PyPlot.ylabel(ylab);
+	#PyPlot.xlabel(xlab);
+        #PyPlot.xlim(xmin,xmax)
+        #PyPlot.ylim(ymin,ymax)
+	#gcf()
+end
+
+function pyplot1D(x,y,xlab="",ylab="",xmin::Float64=0.0,xmax::Float64=1.0,ymin::Float64=-1.0,ymax::Float64=1.0)
 	#nY = size(yvecs)[1]
 	#for i = 1:nY
 	fig, ax = PyPlot.subplots();
@@ -95,7 +139,8 @@ function plot1D(x,y,xlab="",ylab="")
 	#end
 	PyPlot.ylabel(ylab);
 	PyPlot.xlabel(xlab);
-	#title(title)
+        PyPlot.xlim(xmin,xmax)
+        PyPlot.ylim(ymin,ymax)
 	gcf()
 end
 
@@ -187,13 +232,15 @@ function plotPoints(Rvals,z,xlab="",ylab="",zlab="",name="",cmap= :redgreensplit
 	gui(surf)
 end
 
-function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :redgreensplit,save=false)
+function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 
 	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
 	C = 500
 	width = C
 	height = C*dy/dx
-	surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	#surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+	surf = surface(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+	#surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	#heatmap!
 	gui(surf)
 end

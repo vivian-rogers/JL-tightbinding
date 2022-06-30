@@ -43,7 +43,7 @@ function Hgen(p,A::Function)
 		NNs = hoppingModification(NNs,A) # apply the peierls phase
 	end
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
-	H_onsite = 10^(-3)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2)
+	H_onsite = 10^(-5)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2)
 	#H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
 	
@@ -77,6 +77,10 @@ function Hgen(p,A::Function)
 	#β = 0.02*eV*[1,0,0]
 	#Hᵦ = I(p.nsite)⊗I(p.norb)⊗I(p.n)⊗(β[1]*σ[1] .+ β[2]*σ[2] .+ β[3]*σ[3])
 	function H(k)
+		if(any(isnan,k)==true)
+				throw(DomainError(k, "Something broken in k vector definition! Returning NaN"))
+				return
+		end
 		# hamiltonian describing the edges
 		Hₑ = spzeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
 		for NN in edge_NNs
@@ -92,18 +96,8 @@ function Hgen(p,A::Function)
 			Hₑ[2*NN.b-1, 2*NN.a  ] .+= NN.t[1,2]*NN.t*Δϕ
 			Hₑ[2*NN.b  , 2*NN.a  ] .+= NN.t[2,2]*NN.t*Δϕ=#
 		end
-		#if(spin == true)
-		#	return Hermitian( (H_edge .+ H₀)⊗I(2) .+ β*I(2)⊗[1 0; 0 0]⊗σ₃)
-		#else
-		#	return Hermitian(H_edge .+ H₀)
-		#end
-		#println("H₀ = $H₀")
-		#println("Hₑ = $Hₑ")
-		#if(k⋅k ≈ 0)
-		#	println("Hₑ = $Hₑ")
-		#	println("H₀ = $H₀")
-		#end
-		return dropzeros(H₀ .+ Hₑ)
+		Htot = H₀ .+ Hₑ
+		return Htot
 		#return dropzeros(Hᵦ)
 		#return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
 		#return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)
@@ -117,34 +111,34 @@ end
 # we are not adding any onsite +U terms quite yet, so the SCF loops may be unnecessary. 
 
 function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vector{Vector{Float64}})
-        println("===== Calculating applied zeeman field properties =====")
-        checkPeriodicField(A,p) # tells you if gauge field periodic with SL
-        if(p.fieldtype == "A")
-                println("Field type = vector potential, applying onsite zeeman and peierls term")
+	println("===== Calculating applied zeeman field properties =====")
+	checkPeriodicField(A,p) # tells you if gauge field periodic with SL
+	if(p.fieldtype == "A")
+		println("Field type = vector potential, applying onsite zeeman and peierls term")
 		Bfield = Bvals(A,Rvals); Nsites = p.n*p.nsite
 		avgB = sum(Bfield)*Nsites^-1
 		#avgB = [0;0;0]
 		Bfield = [Bfield[i] .- avgB for i = 1:Nsites]
 		
 		Bsurf = Bvals(A,Rsurf)
-				plot3Dvectors(Rvals,Bfield,[coeff*R[2] for R in Rvals],"x position (nm)", "y position (nm)", "β₂ (eV)")
-                plotScatter(Rsurf,[B[1]-avgB[1] for B in Bsurf], "x position (nm)", "y position (nm)", "Bₓ (T)", "coolwarm",)
-                println("ΣB field = $(sum(Bfield)) T")
-                println("max B field = $(maximum(maximum.(Bfield))) T")
+		plot3Dvectors(Rvals,Bfield,[coeff*R[2] for R in Rvals],"x position (nm)", "y position (nm)", "β₂ (eV)")
+		plotScatter(Rsurf,[B[1]-avgB[1] for B in Bsurf], "x position (nm)", "y position (nm)", "Bₓ (T)", "coolwarm",)
+		println("ΣB field = $(sum(Bfield)) T")
+		println("max B field = $(maximum(maximum.(Bfield))) T")
 		return (Bfield, Bsurf, avgB)
 		#return Bfield, Bsurf, avgB
 		#println("Bsurf = $(Bsurf[:][:][3])")
 		#Bfield = Bfield .- avgB
 	elseif(p.fieldtype == "β")
-                println("Field type = exchange, applying onsite exchange-like term")
-                avgB = [0;0;0]
-                coeff = ħ/m₀
-                Bfield = A.(Rvals)
+		println("Field type = exchange, applying onsite exchange-like term")
+		avgB = [0;0;0]
+		coeff = ħ/m₀
+		Bfield = A.(Rvals)
 		Bsurf = A.(Rsurf)
-                println("Σβ field = $(sum(coeff*Bfield)) eV")
-                println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
-                plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
-                plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
+		println("Σβ field = $(sum(coeff*Bfield)) eV")
+		println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
+		#plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
+		plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
 		#return (Float64.(Bfield), Float64.(Bsurf), avgB)
 		return (Bfield, Bsurf, avgB)
 	end

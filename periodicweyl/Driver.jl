@@ -4,6 +4,8 @@ push!(LOAD_PATH, "../src/")
 module Driver
 #using Plots
 #using PlotStuff
+using InBi
+using Electrodes
 using Constants
 using LinearAlgebra
 using UsefulFunctions
@@ -17,6 +19,7 @@ using ConstructHamiltonian
 using InBiNNs
 using VectorPotential
 #using Nanospheres
+using NEGF
 using Bands
 using PlotStuff
 
@@ -110,53 +113,46 @@ function runDOS(n, H, λ,save=false,path="", Bavg=0)
 	return DOS, Evals
 end
 
+# function to calculate transport from device parameters
+function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
+        println("============= NEGF transport ============")
+        Electrodes = [
+		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x","weyl",A)
+		Electrode([p.nx,p.nx+1],[0,p.ny],[0,p.nz],p.ny*p.nz,"+x","weyl",A)
+	]
+	negf_params = (prune = union(["x"],(p.prune)), nelectrodes=2)
+	#negf_params = (prune = union(["x"],(p.prune)), nelectrodes=2, η=10^-8*eV)
+	negf_params = merge(p,negf_params)
+	H = runSCF(negf_params,A) # generates H(k)
+	println("Generating self-energy matrices for electrodes...")
+	Σks = genΣₖs(p,Electrodes) #i.e. the Σᵢ(E) at a given k value. Call with Σₖ = Σks(k); then Σ = Σₖ(E)
+	println("Defining Gʳ, Current operator, etc...")
+	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
+	# let's sample at
+	nk = 60
+	kgrid, kweights, kindices = genBZ(negf_params,0,nk,nk) # generate surface BZ points
+	E_samples = [0.5]
+	#E_samples = [0.2,0.5,1.0,2.0,5.0]
+	#E_samples = [0.5]
+	#E_samples = [E for E = 0.1:0.5:2.1]
+	#E_samples = [E for E = 0.1:1.0:2.1]
+        TofE, Tmap, TmapList = totalT(genT, kindices, kgrid, kweights, E_samples, minimum(E_samples))
+        #display(TmapList)
+	#display(Tmap)
+	display(TofE)
+	plot1D(TofE,E_samples,"Transmission","E (eV)",0.0,10.0,minimum(E_samples),maximum(E_samples))
+        plotMat(Tmap',"k₂","k₃")
+        #plotMat([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
+        #plot2D([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
+	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
+	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
+	
+
+end
+
 # takes in the parameters defined in runs.jl, returns H(k)
 function runSCF(p,A,save=false,path="",name="")
-	
-	# returns static part of hamiltonian, periodic boundary hopping structs, up/down spin density, 
-	# position values of sites, pseudo B field(R)
-	# (mess with spin polarization in /src/ConstructHamiltonian.jl, needs testing. Currently n₊ = n₋)
 	H = Hgen(p,A)
-	#H₀, edgeNN_arr, n₊, n₋, R, pseudoB = Hgen(λ,Δh0,σ,fᵤ,U,μ,V₀,U₂,θ,save,path)
-	
-	# older implementation -- may be more efficient to gen H(k) in Hgen
-	# H, n₊, n₋, R, pseudoB = Hgen(λ,Δh0,σ,fᵤ,U,μ,V₀,U₂,θ,save,path)
-	#=
-	# generates stats on the pseudo B field
-	Brms, Bave, Bmax = pseudoBstats(pseudoB)
-	println("pseudo-B stats: ")
-	@printf("<|B|> = %g T, √(B²) = %g T, max(B) = %g T\n", Bave, Brms, Bmax)
-	
-
-	
-	# prepping for final H definition
-	# this is nontrivial to read, look into map function in functional languages for explanation
-	edgeNNs = [NN for NN in edgeNN_arr]
-	
-	# the grid-site values of the relevant periodic edge bonds
-	aVals = map(NN -> Int(NN.a),edgeNNs)
-	bVals = map(NN -> Int(NN.b),edgeNNs)
-	a₁ = λ*a*[1;0]; a₂ = λ*a*[cosd(60);sind(60)]; 
-	function H(k)
-		
-		# connect the edges using bloch's theorem
-		# needs phase offset if breaking time reversal symmetry, or perhaps define in Hgen
-		tVals = map(NN->ComplexF64(NN.t*exp(im*k⋅(NN.N[1]*a₁+NN.N[2]*a₂))), edgeNNs)
-		
-		# generates the matrix for cₐ†cᵦ for bonds leading out of SL primitive unit cell
-		H_edge = sparse(aVals,bVals,tVals)
-
-		# returns total hamiltonian
-		return H₀ .+ H_edge
-	end
-
-	# can plot the spin densities !
-	if(save)
-		fig₊ = plotScatter(R,n₊,"x position (nm)","y position (nm)","|ψ|²");
-		fig₋ = plotScatter(R,n₋,"x position (nm)","y position (nm)","|ψ|²");
-		SaveFigure(fig₊,path,"ψ²_u"*name)
-		SaveFigure(fig₋,path,"ψ²_d"*name) 
-	end=#
 	println("returning from SCF")
 	# returns call to H(k), Brms value for plotting and stats
 	return H
@@ -186,10 +182,11 @@ function main(p,A=A,save=false,path="")
 	
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
-	#Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₁
-        Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
+	Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
+        #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
         #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
-	runBands(p,2^6,H,Q,true,p.arpack)
+	#runBands(p,2^6,H,Q,true,p.arpack)
+	NEGF_2contacts_1layer(p,A)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")

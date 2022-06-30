@@ -10,8 +10,8 @@ export pruneHoppingType, Agen, βgen
 function pruneHoppingType(runtype::String="")
 	println("runtype = $runtype")
         if(runtype ∈ ["nanopillars", "eggcarton", "afmthinfilm", "fmthinfilm", "fmdotsP", "fmdotsAP", "neelwall", "blochwall" ])
-		#return []
-		return ["z"]
+		return []
+		#return ["z"]
 	end
 	if(runtype == "domainwallthin")
 		return ["z","y"]
@@ -85,7 +85,7 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 end
 
 
-function βgen(p,runtype::String,β₀::Float64=0.2*eV)
+function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360)
 	C = ħ/m₀
 	if(runtype=="fmdotsP")
 		function fmdotPβ(R::Vector{Float64})
@@ -133,8 +133,8 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 		function dwnβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
 			λ = 2*nm # penetration depth of ferromagnetism into slab
-			xmag = cos(2*π*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
-			ymag = (1-xmag^2)*sign(sin(2*π*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        xmag = cos(2*π*(θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
+                        ymag = (1-xmag^2)*sign(sin(2*π*(θ/360)*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
 			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
 			return β₀*[xmag;ymag;0]*decay
 		end
@@ -143,16 +143,15 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV)
 		function dwbβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
 			λ = 2*nm # penetration depth of ferromagnetism into slab
-			zmag = cos(2*π*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
-			ymag = (1-zmag^2)*sign(sin(2*π*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        zmag = cos(2*π*(θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
+                        ymag = (1-zmag^2)*sign(sin(2*π*(θ/360)*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
 			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
 			return β₀*[0;ymag;zmag]*decay
 		end
 		return dwbβ
 	elseif(runtype=="fmthinfilm")
-		λ = 2*nm
 		function fmβ(R::Vector{Float64})
-			λ = 2*nm
+			λ = 5*nm
 			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
 			return β₀*[0;1;0]*decay
 		end

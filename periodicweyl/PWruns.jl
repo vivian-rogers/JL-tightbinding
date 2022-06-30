@@ -48,7 +48,7 @@ function kdictGen(A)
 	return kdict
 end
 
-klist = ["M","Γ","X₁","M","X₂","Γ"]
+klist = ["M","Γ","X₁","M","X₂","Γ","-X₂"]
 
 println("Generating periodic field hamiltonian")
 H = ConstructHamiltonian(p,[Mx,My,Mz])
@@ -60,7 +60,7 @@ show(klist)
 println("...")
 E, Estates = getBands(klist, kdictGen(A), nk, a, H)
 #display(27.2*E)
-Q = 2*I(ng)⊗I(p.norb)⊗σ₃
+Q = I(ng)⊗I(p.norb)⊗σ₃
 
 projStates = expectedValue(Q ,Estates)
 plotBands(klist,nk,E, projStates)

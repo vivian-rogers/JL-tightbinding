@@ -1,6 +1,8 @@
 
 
 #push!(LOAD_PATH, "./src/")
+push!(LOAD_PATH, "./src/")
+push!(LOAD_PATH, "./")
 module VectorPotential
 
 #using Plots
@@ -174,7 +176,9 @@ function Bvals(A::Function, Rvals::Vector{Vector{Float64}})
 	#return Bs 
 end
 
-function zeeman(Bvals::Vector{Vector{Float64}},  p)
+
+
+function zeeman(Bvals::Vector{Vector{Float64}},  p::NamedTuple)
 	# only defined for S-like orbitals with lz = 0
 	N = p.n*p.nsite*p.norb*2
 	#for i = 1:N

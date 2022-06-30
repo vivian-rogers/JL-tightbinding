@@ -6,7 +6,7 @@ using Driver
 using Constants
 using SLutils
 
-export params, kdictGen, genSL
+export params, kdictGen, genSL, genBZ
 # electronic properties
 t₁ = 0.1*eV; # In-Bi px-px,py-py
 t₂ = 0.4*eV; # In-In 1st NN hopping
@@ -43,10 +43,12 @@ function kdictGen(A)
 		    #"M" => B*[   0;  1/2; 1/2],
 		    "Z" => B*[   0;    0; 1/2],
 		    "-Z" => B*[  0;    0;-1/2],
-		    "X₂" => B*[   0;    1/2; 0],
-		    "-X₂" => B*[  0;  -1/2;0],
 		    "X₁" => B*[   1/2;    0; 0],
 		    "-X₁" => B*[  -1/2;    0;0],
+		    "X₂" => B*[   0;    1/2; 0],
+		    "-X₂" => B*[  0;  -1/2;0],
+		    "X₃" => B*[   0;    0; 1/2],
+		    "-X₃" => B*[  0;    0;-1/2],
 		    )
 		    #="Γ" => B*[ 0  ;    0;   0],
 		    "A" => B*[ 1/2;  1/2; 1/2],
@@ -69,7 +71,7 @@ end
 
 params = (
 	  t = t, t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
-	  vf = 10^6,
+	  vf = 10^6, η = 10^-4,
 	  ε = ε, 
 	  a₁ = a₁, a₂ = a₂, a₃ = a₃, A = A, a=a, b=a, c=c,
 	  SLa₁ = a₁, SLa₂ = a₂, SLa₃ = a₃,
@@ -121,6 +123,46 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 	return merge(params,SLparams)
 end
 
+function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works for cubic lattice
+    # nx, ny, and nz specifically refer to # of points in IBZ
+    kpoints = Vector{Float64}[]
+    kindices = Vector{Int}[]
+    kweights = Float64[]
+    X1 = p.kdict["X₁"];
+    X2 = p.kdict["X₂"];
+    X3 = p.kdict["X₃"];
+	function divFixNaN(a::Int,b::Int) # for this particular instance, n/0 represents a Γ-centred sampling @ k = 0. 
+		if(b==0)
+			return 0
+		else
+			return a/b
+		end
+	end
+	for ix = -nx:nx
+        for iy = -ny:ny
+            for iz = -nz:nz
+                kindex = [iy + ny + 1; iz + nz + 1]
+                k = divFixNaN(ix,nx)*X1 + divFixNaN(iy,ny)*X2 + divFixNaN(iz,nz)*X3
+                kweight = 1
+                if(abs(ix) == nx)
+                    kweight *= 1/2
+                end
+                if(abs(iy) == ny)
+                    kweight *= 1/2
+                end
+                if(abs(iz) == nz)
+                    kweight *= 1/2
+                end
+                push!(kpoints,k)
+                push!(kindices,kindex)
+                push!(kweights,kweight)
+            end
+        end
+    end
+    ksum = sum([w for w in kweights])
+    kweights = (1/ksum).*kweights
+    return kpoints, kweights, kindices
+end
 #main(params)
 
 end
