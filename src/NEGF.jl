@@ -8,7 +8,7 @@ using UsefulFunctions
 using SparseArrays
 using Electrodes
 using ProgressBars
-
+using Random
 
 export NEGF_prep, totalT
 
@@ -84,9 +84,11 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	TofE = zeros(nE)
         BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 	iter = ProgressBar(1:nk)
-        Threads.@threads for i in iter
+        knum = shuffle([i for  i = 1:nk])
+        Threads.@threads for ik in iter
         #for i in iter
 	#for i in iter
+                i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
 		k = kgrid[i]
 		kindex = kindices[i]
 		w = kweights[i]

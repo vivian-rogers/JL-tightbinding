@@ -43,7 +43,7 @@ function Hgen(p,A::Function)
 		NNs = hoppingModification(NNs,A) # apply the peierls phase
 	end
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
-	H_onsite = 10^(-5)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2)
+        H_onsite = 10^(-5)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2) .+ p.μ*I(p.n*p.nsite*p.norb*2)
 	#H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
 	
@@ -66,7 +66,8 @@ function Hgen(p,A::Function)
 	#H₀ = 
 	#println("B field = $Bfield T")
 	Hᵦ = zeeman(Bfield,p)
-	#println("Zeeman splitting hamiltonian = $Hᵦ")
+        #display(Hᵦ)
+        #println("Zeeman splitting hamiltonian = $Hᵦ")
 	#show(Hᵦ)
 	#H₀ .+= Diagonal(rand(Float64,p.n*p.nsite*p.norb*2).-0.5)*10^-3
 	#H₀ = H_onsite .+ H_hop # add on Hpot, Hcharge, H+U, etc here
@@ -130,16 +131,20 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
 		#println("Bsurf = $(Bsurf[:][:][3])")
 		#Bfield = Bfield .- avgB
 	elseif(p.fieldtype == "β")
-		println("Field type = exchange, applying onsite exchange-like term")
 		avgB = [0;0;0]
 		coeff = ħ/m₀
 		Bfield = A.(Rvals)
 		Bsurf = A.(Rsurf)
-		println("Σβ field = $(sum(coeff*Bfield)) eV")
-		println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
-		#plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
-		plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
-		#return (Float64.(Bfield), Float64.(Bsurf), avgB)
+                if(p.verbose)
+                    println("Field type = exchange, applying onsite exchange-like term")
+                    println("Σβ field = $(sum(coeff*Bfield)) eV")
+                    println("max β field = $(coeff*maximum(maximum.(Bfield))) eV")
+                end
+                #plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
+                if(p.plotfield)
+                    plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
+                end
+                #return (Float64.(Bfield), Float64.(Bsurf), avgB)
 		return (Bfield, Bsurf, avgB)
 	end
 end

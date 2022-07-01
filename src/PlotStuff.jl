@@ -232,6 +232,37 @@ function plotPoints(Rvals,z,xlab="",ylab="",zlab="",name="",cmap= :redgreensplit
 	gui(surf)
 end
 
+#=function plotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
+
+	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
+	C = 500
+	width = C
+	height = C*dy/dx
+	surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+	#surf = surface(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+	#surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	#heatmap!
+	gui(surf)
+end=#
+
+function plotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
+        Plots.gr()
+	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
+	C = 500
+	width = C
+	height = C*dy/dx
+	#surf = PyPlot.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	show(size(z))
+	show(size(x))
+	show(size(y))
+        surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+        #surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	#surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	#heatmap!
+        xlabel
+	gui(surf)
+end
+
 function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 
 	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
@@ -246,6 +277,18 @@ function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 end
 
 #function nameGen
+function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="")
+    zmat = zeros(size(yvals)[1],size(xvals)[1])
+    for i in eachindex(xvals)
+        x = xvals[i]
+        println("Sweeping y = $yvals at x = $x...")
+        args = gridToArgs(x)
+        out = f(args)
+        zmat[:,i] = deepcopy(out)
+        #zmat[:,i] = deepcopy(√(x)*yvals.^2)
+    end
+    plotHeatmap(xvals,yvals,zmat,xlab,ylab)
+end
 
 function SaveFigure(fig,path,name="",type=".png")
 	fig.savefig(path*"/"*name*type)
@@ -369,5 +412,13 @@ function plotBands(klist, nk, E)
 	end
 	gcf()
 end
+
+
+for n in names(@__MODULE__; all=true)
+   if Base.isidentifier(n) && n ∉ (Symbol(@__MODULE__), :eval, :include)
+       @eval export $n
+   end
+end
+
 
 end

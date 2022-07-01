@@ -247,24 +247,24 @@ function Σgen(p::NamedTuple,H::SparseMatrixCSC,Hₗ::SparseMatrixCSC, Hᵣ::Spa
     # so H needs to be instantiated and called outside of the loop
 	H_coupling = Hₗ .+ Hᵣ# couples a layer to the infinite on both sides
     function Σ(E::Float64)
-        Σ_guess = H_coupling'*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*H_coupling
+        Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*H_coupling'
         # converge the self energy 
         error = 1
         #for i = 1:40
         while error > cutoff
             #println("Σ convergence error loop: $error")
             Σ_guess0 = deepcopy(Σ_guess)
-            Σ_guess = H_coupling'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess0)*H_coupling
+            Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- Σ_guess0)*H_coupling'
             error =  norm(Σ_guess.-Σ_guess0)
         end
         if(ElectrodeInfo.connectfrom=="-x")
-                Σ_surf = Hᵣ'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵣ
+                Σ_surf = Hᵣ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵣ'
                 return P*Σ_surf*P'
         else
                 if(ElectrodeInfo.connectfrom != "+x")
                         println("Something is very broken, check that your electrodes are in ±x")
                 end
-                Σ_surf = Hₗ'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hₗ
+                Σ_surf = Hₗ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hₗ'
                 #show(size(Σ_surf))
                 #show(size(P))
                 return P*Σ_surf*P'

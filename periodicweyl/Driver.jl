@@ -120,7 +120,7 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x","weyl",A)
 		Electrode([p.nx,p.nx+1],[0,p.ny],[0,p.nz],p.ny*p.nz,"+x","weyl",A)
 	]
-	negf_params = (prune = union(["x"],(p.prune)), nelectrodes=2)
+        negf_params = (prune = union(["x"],(p.prune)),verbose=false, nelectrodes=2)
 	#negf_params = (prune = union(["x"],(p.prune)), nelectrodes=2, η=10^-8*eV)
 	negf_params = merge(p,negf_params)
 	H = runSCF(negf_params,A) # generates H(k)
@@ -129,25 +129,25 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 	println("Defining Gʳ, Current operator, etc...")
 	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
-	nk = 60
-	kgrid, kweights, kindices = genBZ(negf_params,0,nk,nk) # generate surface BZ points
-	E_samples = [0.5]
+        nkx = 0; nky = p.nk; nkz = p.nk;
+	kgrid, kweights, kindices = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
+	#E_samples = [0.2]
 	#E_samples = [0.2,0.5,1.0,2.0,5.0]
 	#E_samples = [0.5]
 	#E_samples = [E for E = 0.1:0.5:2.1]
 	#E_samples = [E for E = 0.1:1.0:2.1]
-        TofE, Tmap, TmapList = totalT(genT, kindices, kgrid, kweights, E_samples, minimum(E_samples))
+        println("Sweeping transmission over kgrid: $nkx, $nky, $nkz ")
+        TofE, Tmap, TmapList = totalT(genT, kindices, kgrid, kweights, p.E_samples, minimum(p.E_samples))
         #display(TmapList)
 	#display(Tmap)
 	display(TofE)
-	plot1D(TofE,E_samples,"Transmission","E (eV)",0.0,10.0,minimum(E_samples),maximum(E_samples))
+	plot1D(TofE,p.E_samples,"Transmission","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
         plotMat(Tmap',"k₂","k₃")
         #plotMat([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
         #plot2D([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
 	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
 	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
-	
-
+        return TofE	
 end
 
 # takes in the parameters defined in runs.jl, returns H(k)
@@ -166,31 +166,34 @@ end
 function main(p,A=A,save=false,path="")
 	
 	# number of sites
-	println("=========== InBi ==============")
-	println("Running simulation with parameters: ")
-	println("params = $p") # oh this is so ugly, clean it later
-	if(save) println("Saving outputs to $path\n") end
+        println("=========== MWSM devices ==============")
+        println("performing: $(p.sweep)")
+        if(p.verbose)
+            println("Running simulation with parameters: ")
+            println("params = $p") # oh this is so ugly, clean it later
+            if(save) println("Saving outputs to $path\n") end
 
-	println("\n")
-	println("Generating static hamiltonian...")
-	H = runSCF(p,A,save,path)
-
-	testH = H([0;0;0])
-	println("size of H = $(size(testH))")
-	#println("testH₀ = \n $testH")
+            println("\n")
+        end
+        if(p.bands)
+            println("Generating static hamiltonian...")
+            H = runSCF(p,A,save,path)
+            testH = H([0;0;0])
+            println("size of H = $(size(testH))")
+            Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
+            #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
+            #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
+            runBands(p,2^6,H,Q,true,p.arpack)
+        end
+        #println("testH₀ = \n $testH")
 	# some arbitrary operators for bands routine
 	
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
-	Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
-        #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
-        #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
-	#runBands(p,2^6,H,Q,true,p.arpack)
-	NEGF_2contacts_1layer(p,A)
+	TofE = NEGF_2contacts_1layer(p,A)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
 	println("Done!\n")
-
-	# if sweeping, can return something here
+        return TofE
 end
 end
