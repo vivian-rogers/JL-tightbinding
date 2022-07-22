@@ -15,6 +15,7 @@ using Printf
 using Constants
 using InBiNNs
 using VectorPotential
+using Distributions
 #using PlotStuff
 #using GenNNs
 
@@ -43,7 +44,9 @@ function Hgen(p,A::Function)
 		NNs = hoppingModification(NNs,A) # apply the peierls phase
 	end
 	H₀, edge_NNs = nnHoppingMat(NNs,p) 
-        H_onsite = 10^(-5)*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2) .+ p.μ*I(p.n*p.nsite*p.norb*2)
+        NormalDist = Normal(0,p.μ_disorder)
+        H_onsite = Diagonal(rand(NormalDist,p.n*p.nsite))⊗I(p.norb*2) .+ p.μ*I(p.n*p.nsite*p.norb*2)
+        #H_onsite = p.μ_disorder*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2) .+ p.μ*I(p.n*p.nsite*p.norb*2)
 	#H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
 	
@@ -54,18 +57,22 @@ function Hgen(p,A::Function)
 			push!(Rsurf,Rval)
 		end
 	end
-	(Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals)
+        if(p.deviceMagnetization==true)
+            (Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals)
+            Hᵦ = zeeman(map(B -> Float64.(B), Bfield),p)
+        else
+            Hᵦ = 0I(p.n*p.nsite*p.norb*2)
+        end
         #Bfield = fieldUtils(p,A,Rsurf)
-	println("Generating field")
+	#println("Generating field")
 	#Bsurf = zeros(size(Rsurf))
-	println("Plotting field at surface...")
+	#println("Plotting field at surface...")
 	#plotScatter(Rsurf,Bvals(A,Rsurf)[3])
 	#plotPoints(Rsurf,Bvals(A,Rsurf)[3])
 	#plotFunct(Rsurf,Bvals(A)[3])
-	println("Calculating B field in slab...")
+	#println("Calculating B field in slab...")
 	#H₀ = 
 	#println("B field = $Bfield T")
-	Hᵦ = zeeman(Bfield,p)
         #display(Hᵦ)
         #println("Zeeman splitting hamiltonian = $Hᵦ")
 	#show(Hᵦ)

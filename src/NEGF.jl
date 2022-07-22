@@ -7,10 +7,11 @@ using Operators
 using UsefulFunctions
 using SparseArrays
 using Electrodes
+using Distributed
 using ProgressBars
 using Random
 
-export NEGF_prep, totalT
+export NEGF_prep, totalT, DOS
 
 
 function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
@@ -22,7 +23,9 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
             function Γ(k::Vector{Float64})
                 Σₖ = Σks[i](k)
                 function Γₖ(E::Float64)
-                    return im*(Σₖ(E) .- Σₖ(E)')
+                	Σ = Σₖ(E)
+                    #return -2*imag(Σ) # weird def in weyl MTJ paper
+                    return im*(Σ .- Σ')
                 end
             end
             Γks[i] = deepcopy(Γ)
@@ -34,11 +37,14 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 			Σk = Σks[iΣ](k)
 			Σs[iΣ] = Σk
 		end
-		totalΣ = spzeros(ComplexF64,p.n*p.nsite*p.norb*2,p.n*p.nsite*p.norb*2)
-		for Σ in Σs
+		totalΣ = zeros(ComplexF64,p.n*p.nsite*p.norb*2,p.n*p.nsite*p.norb*2)
+		i = 1
+                for Σ in Σs
 		    sig = Σ(E)
-                    #println("size of Σ = $(size(sig))")
+                    #println("Σ$i = ")
+                    #display(sig)	
                     totalΣ .+= sig
+                    i += 1
 		end
 		return totalΣ
 	end
@@ -46,6 +52,8 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		function Gʳ(E::Float64)
 			Σ = totΣk(E,k)
 			effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ
+			#effH = (E + im*p.η)*I(ntot) .- Σ
+			#effH = (E + im*p.η)*I(ntot) .- H(k) .- 2*Σ
 			return grInv(effH)
 		end
 		return Gʳ
@@ -56,7 +64,9 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		Γ₁ = Γks[1](k)
 		Γᵢ = Γks[contact](k)
 		function Tatk(E)
-			return tr(Γ₁(E)*Gʳ(E)*Γᵢ(E)*Gʳ(E)')
+			GʳE = Gʳ(E)
+			#return tr(GʳE*Γ₁(E)*GʳE'*Γᵢ(E))
+			return tr(Γ₁(E)*GʳE*Γᵢ(E)*GʳE')
 		end
 		return Tatk
 	end
@@ -65,14 +75,71 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		function A(E::Float64)
 			GʳE = Gʳ(E)
 			Σ = totΣk(E,k)
-			return GʳE*im*(Σ(E) .- Σ(E)')*GʳE'
+			return GʳE*im*(Σ .- Σ')*GʳE'
 		end
 		return A
 	end
 	return genGʳ, genT, genA
 end
 
-function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},Eslice::Float64=0.2)
+#function DOS(genA::Function,kvals::Vector{Vector{Float64}},kpts::Vector{Float64},E_samples::Vector{Float64})
+#    DOS_samples = pmap(E->tr(genA(E))/π,E_samples)
+#
+#    return DOS_samples
+#end
+function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallelk::Bool=true)
+	nE = size(Evals)
+	#nkz = maximum([kindex[2] for kindex in kindices])
+	#nky = maximum([kindex[1] for kindex in kindices])
+	#special slice to map BZ
+	nk = size(kweights)[1]
+	#Eslice = findnearest(Evals,Eslice) #make it so that we do not have to do a whole nother k loop
+	#TmapList = zeros(nk)
+	DOS = zeros(nE)
+	if(parallelk)
+		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		iter = ProgressBar(1:nk)
+		knum = shuffle([i for  i = 1:nk])
+                #for ik in iter
+                Threads.@threads for ik in iter
+                        i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
+                        k = kgrid[i]
+                        w = kweights[i]
+                        Aₖ = genA(k)
+                        for iE in eachindex(Evals)
+                                E = Evals[iE]
+                                Dₖ = deepcopy(tr(Aₖ(E)))/π
+                                #TofE[iE] += real(Dₖ*w)
+                                DOS[iE] += real(im*Dₖ*w)
+                        end
+		end
+	else
+		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		knum = shuffle([i for  i = 1:nk])
+		for ik = 1:nk
+				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
+				k = kgrid[i]
+				#kindex = kindices[i]
+				w = kweights[i]
+				Aₖ = genA(k)
+				iter = ProgressBar(1:size(Evals)[1])
+				for iE in iter
+				#Threads.@threads for iE in iter
+                                    E = Evals[iE]
+                                    Dₖ = deepcopy(tr(Aₖ(E)))/π
+                                    #DOS[iE] += real(Dₖ*w)
+                                    DOS[iE] += real(im*Dₖ*w)
+                                    #=if(E≈Eslice)
+                                            Tmap[kindex[1],kindex[2]] = real(T)
+                                            TmapList[i] = real(T)
+                                    end=#
+				end
+		end
+	end
+	return DOS
+end
+
+function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallelk::Bool=true,Eslice=0.25)
 	nE = size(Evals)
 	nkz = maximum([kindex[2] for kindex in kindices])
 	nky = maximum([kindex[1] for kindex in kindices])
@@ -80,30 +147,73 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	nk = size(kweights)[1]
 	#Eslice = findnearest(Evals,Eslice) #make it so that we do not have to do a whole nother k loop
 	Tmap = zeros(nky,nkz)
-	TmapList = zeros(nk)
+	imTmap = zeros(nky,nkz)
+	#TmapList = zeros(nk)
 	TofE = zeros(nE)
-        BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
-	iter = ProgressBar(1:nk)
-        knum = shuffle([i for  i = 1:nk])
-        Threads.@threads for ik in iter
-        #for i in iter
-	#for i in iter
-                i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
-		k = kgrid[i]
-		kindex = kindices[i]
-		w = kweights[i]
-		Tₖ = genT(k)
-		for iE in eachindex(Evals)
-			E = Evals[iE]
-			T = deepcopy(Tₖ(E))
-			TofE[iE] += real(T*w)
-			if(E≈Eslice)
-                            Tmap[kindex[1],kindex[2]] = real(T)
-                            TmapList[i] = real(T)
-			end
+	if(parallelk)
+		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		iter = ProgressBar(1:nk)
+		knum = shuffle([i for  i = 1:nk])
+		approxIn(E,Evals) = any(map(Ei->Ei≈E,Evals))
+			Threads.@threads for ik in iter
+				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
+				k = kgrid[i]
+				kindex = kindices[i]
+				w = kweights[i]
+				Tₖ = genT(k)
+				if(approxIn(Eslice, Evals))
+					for iE in eachindex(Evals)
+						E = Evals[iE]
+						T = deepcopy(Tₖ(E))
+						TofE[iE] += real(T*w)
+						if(E≈Eslice)
+                                                        Tmap[kindex[1],kindex[2]] = real(T)
+                                                        imTmap[kindex[1],kindex[2]] = imag(T)
+						end
+					end
+				elseif(typeof(Eslice) == Float64) 
+					for iE in eachindex(Evals)
+						E = Evals[iE]
+						T = deepcopy(Tₖ(E))
+						TofE[iE] += real(T*w)
+					end
+					Tmap[kindex[1],kindex[2]] = real(Tₖ(Eslice))
+				else
+					for iE in eachindex(Evals)
+						E = Evals[iE]
+						T = deepcopy(Tₖ(E))
+						TofE[iE] += real(T*w)
+					end
+				end
+		end
+	else
+		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		knum = shuffle([i for  i = 1:nk])
+		for ik = 1:nk
+				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
+				k = kgrid[i]
+				kindex = kindices[i]
+				w = kweights[i]
+				Tₖ = genT(k)
+				
+				#=TₖofE = real.(pmap(E -> Tₖ(E), Evals))
+				TofE .+= TₖofE*w
+				=#
+				iter = ProgressBar(1:size(Evals)[1])
+				#for iE in iter
+				Threads.@threads for iE in iter
+                                    E = Evals[iE]
+                                    T = deepcopy(Tₖ(E))
+                                    TofE[iE] += real(T*w)
+                                    #=if(E≈Eslice)
+                                            Tmap[kindex[1],kindex[2]] = real(T)
+                                            TmapList[i] = real(T)
+                                    end=#
+				end
+				Tmap[kindex[1],kindex[2]] = real(Tₖ(Eslice))
 		end
 	end
-	return TofE, Tmap, TmapList
+	return TofE, Tmap, imTmap
 end
 
 			

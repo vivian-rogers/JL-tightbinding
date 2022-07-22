@@ -8,6 +8,7 @@ using LinearAlgebra
 
 export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors, plotMat
 
+pyplot()
 function plotVec(x,yvecs, title)
 	nY = size(yvecs)[1]
 	for i = 1:nY
@@ -47,7 +48,7 @@ function plotMat(Z,xlab="",ylab="",name="")
 	#nY = size(yvecs)[1]
 	#for i = 1:nY
         pyplot()
-        heatmap(Z,cmap="inferno",xlabel=xlab,ylabel=ylab)
+        h = heatmap(Z,cmap="inferno",xlabel=xlab,ylabel=ylab)
 	#w, h = PyPlot.figaspect(2.)
 	#fig = figure(figsize=(w, h))
     	#ax = fig.add_subplot(111)
@@ -68,7 +69,7 @@ function plotMat(Z,xlab="",ylab="",name="")
 	PyPlot.ylabel(ylab);
 	PyPlot.xlabel(xlab);
 	#title(title)=#
-	gui()
+	gui(h)
 end
 
 function plot2D(Z,ymin=-4,ymax=4,xlab="",ylab="",name="")
@@ -112,6 +113,40 @@ function plotDOS(x,y,xlab="",ylab="")
 	PyPlot.xlabel(xlab);
 	#title(title)
 	gcf()
+end
+
+function plot1D(x::Vector,ys::Vector{Vector{Float64}},xlab::String="",ylab::String="",legend::Vector=[],yaxis=:log)
+	#nY = size(yvecs)[1]
+	#for i = 1:nY
+        pyplot()
+        for i in eachindex(ys)
+            y = ys[i]
+            if(i==1)
+                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis)
+            else
+                Plots.plot!(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis)
+            end
+        end
+        #    #if(legend == [])
+        #    Plots.plot(x,ys,xlabel=xlab,ylabel=ylab,label=legend)
+        #else
+        #    Plots.plot(x,ys,xlabel=xlab,ylabel=ylab)
+        #end
+        xmin = minimum(minimum.(x));
+       xmax = maximum(maximum.(x));
+       ymin = minimum(minimum.(ys));
+       ymax = maximum(maximum.(ys));
+        ylim(ymin,ymax)
+        xlim(xmin,xmax)
+        gui()
+        #fig, ax = PyPlot.subplots();
+	#PyPlot.plot(x,y)
+	#end
+	#PyPlot.ylabel(ylab);
+	#PyPlot.xlabel(xlab);
+        #PyPlot.xlim(xmin,xmax)
+        #PyPlot.ylim(ymin,ymax)
+	#gcf()
 end
 
 function plot1D(x,y,xlab="",ylab="",xmin::Float64=0.0,xmax::Float64=1.0,ymin::Float64=-1.0,ymax::Float64=1.0)
@@ -227,7 +262,8 @@ function plotPoints(Rvals,z,xlab="",ylab="",zlab="",name="",cmap= :redgreensplit
 	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
 	C = 500
 	width = C
-	height = C*dy/dx
+	height = C
+        height = C*dy/dx
 	surf = scatter(Rvals[:,1],Rvals[:,2],z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	gui(surf)
 end
@@ -255,8 +291,8 @@ function plotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 	show(size(z))
 	show(size(x))
 	show(size(y))
-        surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
-        #surf = heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+        #surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+        surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	#surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	#heatmap!
         xlabel
@@ -277,7 +313,7 @@ function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 end
 
 #function nameGen
-function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="")
+function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="",xscale::Float64=1,surf::Bool=true)
     zmat = zeros(size(yvals)[1],size(xvals)[1])
     for i in eachindex(xvals)
         x = xvals[i]
@@ -287,7 +323,11 @@ function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
         zmat[:,i] = deepcopy(out)
         #zmat[:,i] = deepcopy(√(x)*yvals.^2)
     end
-    plotHeatmap(xvals,yvals,zmat,xlab,ylab)
+    if(surf)
+        plotHeatmap(xvals,yvals,zmat,xlab,ylab)
+    else
+        plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],:log10)
+    end
 end
 
 function SaveFigure(fig,path,name="",type=".png")
@@ -350,7 +390,8 @@ function plotScatter(R,z,xlab="",ylab="",name="",cmap="inferno",xyscale=(1/nm),z
 	fig, ax = PyPlot.subplots();
 	#ax.plot(x,y)
 	#zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=z);
-	zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]), cmap=cmap);
+        max = maximum(abs.([maximum(z),minimum(z)]))
+	zplot = ax.scatter(Tuple([xyscale*r[1] for r in R]),Tuple([xyscale*r[2] for r in R]), c=Tuple([zscale*zi for zi in z]), cmap=cmap, vmin = -max, vmax = max);
 	PyPlot.xlabel(xlab);
 	#fig.colorbar(zplot, ax=ax);
 	PyPlot.colorbar(zplot, label=name);

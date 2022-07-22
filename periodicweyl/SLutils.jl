@@ -85,8 +85,9 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 end
 
 
-function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360)
+function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDWs::Float64=-5*nm)
 	C = ħ/m₀
+        β₀ = C^-1 * β₀
 	if(runtype=="fmdotsP")
 		function fmdotPβ(R::Vector{Float64})
 			rad = 0.25; λ = 2*nm
@@ -108,8 +109,26 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360)
 			end
 		end
                 return fmdotPβ
+	elseif(runtype=="multiblochdws")
+            function mbdwβ(R::Vector{Float64})
+                θ = 0
+                error = 1
+                # see: O'Handley on domain walls
+                #a = 5*nm; l = 1*nm
+                #a = 30*nm; l = 5*nm
+                i = 0
+                decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
+                while error > 10^-5
+                    θ₋ = deepcopy(θ)
+                    θ += 2*atan(π*exp((p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
+                    i += 1
+                    error = abs(θ-θ₋)
+                end
+                return β₀*[0;cos(θ);sin(θ)]*decay
+            end
+            return mbdwβ
 	elseif(runtype=="fmdotsAP")
-        function fmdotAPβ(R::Vector{Float64})
+            function fmdotAPβ(R::Vector{Float64})
 			rad = 0.25; λ = 2*nm
 			SLa₁ = p.A[:,1]; SLa₂ = p.A[:,2]
                         coeff = C^-1*β₀*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)*[1;0;0]
@@ -139,16 +158,50 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360)
 			return β₀*[xmag;ymag;0]*decay
 		end
 		return dwnβ
-	elseif(runtype=="blochwall")
+	elseif(runtype=="simplejunction")
+		function sjβ(R::Vector{Float64})
+			α = 51 # arbitrary constant to smooth square wave
+                        half = p.A[1,1]/2
+			λ = 2*nm # penetration depth of ferromagnetism into slab
+			decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+                        if(R[1] > half*(1-0.00001))
+                            return β₀*[0;cosd(θ);sind(θ)]*decay
+                        else
+                            return β₀*[0;1;0]*decay
+                        end
+		end
+		return sjβ
+	elseif(runtype=="blochdw")
 		function dwbβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
 			λ = 2*nm # penetration depth of ferromagnetism into slab
-                        zmag = cos(2*π*(θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))^α
-                        ymag = (1-zmag^2)*sign(sin(2*π*(θ/360)*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
-			decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+                        ymag = cos(2*π*(θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        zmag = (1-ymag^2)*sign(sin(2*π*(θ/360)*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+			decay=1
+                        #decay= C^-1*exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
 			return β₀*[0;ymag;zmag]*decay
 		end
 		return dwbβ
+	elseif(runtype=="neellattice")
+		function latnβ(R::Vector{Float64})
+			α = 51 # arbitrary constant to smooth square wave
+			λ = 2*nm # penetration depth of ferromagnetism into slab
+                        ymag = cos(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        xmag = sin(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+			return β₀*[xmag;ymag;0]*decay
+		end
+		return latnβ
+	elseif(runtype=="blochlattice")
+		function latbβ(R::Vector{Float64})
+			α = 51 # arbitrary constant to smooth square wave
+			λ = 2*nm # penetration depth of ferromagnetism into slab
+                        ymag = cos(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        zmag = sin(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
+                        decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
+			return β₀*[0;ymag;zmag]*decay
+		end
+		return latbβ
 	elseif(runtype=="fmthinfilm")
 		function fmβ(R::Vector{Float64})
 			λ = 5*nm

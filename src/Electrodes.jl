@@ -1,10 +1,13 @@
+
 module Electrodes
 using LinearAlgebra
 using Constants
 using Operators
 using UsefulFunctions
 using SparseArrays
+#using Materials
 using VectorPotential
+
 
 export Electrode, genΣₖs
 
@@ -19,7 +22,7 @@ mutable struct Electrode
 end
 
 
-mutable struct Hopping
+#=mutable struct Hopping
 	a::Int # orbital/site index 1
 	b::Int # orbital/site index 2 with PBC
 	ia # index vector of site A
@@ -31,10 +34,7 @@ mutable struct Hopping
 	edge::Bool # does this hop off the edge of the superlattice?
 	N # vector describing the [n₁;n₂;n₃]⋅[a₁;a₂;a₃] superlattice unit cell of site ib
 	desc::String
-end
- 
-
-
+end=#
 
 function xyztoi(p,ivec, N::Vector{Int} = [0;0;0]) 
 	# indexing 0 to N-1
@@ -46,6 +46,7 @@ function xyztoi(p,ivec, N::Vector{Int} = [0;0;0])
 	return iorb + p.norb*isite + p.nsite*p.norb*ix + p.nsite*p.norb*p.nx*iy + p.nsite*p.norb*p.nx*p.ny*iz + 1
 end
 
+include("Materials.jl")
 # Same as above, except returns the corresponding atomic position of each index vector 
 # useful for calculating ∫A⋅δR peierls phase
 function xyztor(p,ivec)
@@ -73,10 +74,11 @@ function RvalsGen(p::NamedTuple,ei::Electrode)
 	end
 	# offset to fix the 
 	iRoffset = Int(0 + 0 + ix*p.nsite + ei.yrange[1]*p.nx*p.nsite + ei.zrange[1]*p.ny*p.nx*p.nsite)
+        nx = 1
         for iy = ei.yrange[1]:(ei.yrange[2]-1)
             for iz = ei.zrange[1]:(ei.zrange[2]-1)
                 for isite = 0:(p.nsite-1)
-                    iR = Int(1 + isite + p.nsite*(ix-ix + p.nx*((iy-ei.yrange[1]) + (iz-ei.zrange[1])*p.ny)))
+                    iR = Int(1 + isite + p.nsite*(ix-ix + nx*((iy-ei.yrange[1]) + (iz-ei.zrange[1])*p.ny)))
                     #iR = Int(1 - iRoffset + isite + ix*p.nsite + iy*p.nx*p.nsite + iz*p.ny*p.nx*p.nsite)
                     #println("$ix $iy $iz $isite iR $iR")
                     ivec = Int.([ix,iy,iz,isite])
@@ -105,17 +107,87 @@ function zeeman(Bvals::Vector{Vector{Float64}},  p::NamedTuple, ElectrodeInfo::E
 	return sparse(zeeman)
 end
 
+#=function genΣₖs(p::NamedTuple,ElectrodeInfo::Vector{Electrode})   
+	nE = size(ElectrodeInfo)[1]
+	Σks = Vector{Function}(undef,nE)
+	for i = 1:nE # define a self-energy function for every electrode attached to device
+            if(p.electrodeMaterial=="mtjweyl")
+                # for the normal part of the weyl electrodes
+                NNs = genNNs(p,ElectrodeInfo[i])
+		P = changeBasis(p,ElectrodeInfo[i])
+		Hslab, Hₗ, Hᵣ = HcontactGen(p,NNs,ElectrodeInfo[i]) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
+                # doing some jank to get the coupling matrices right
+                insElectrode = deepcopy(ElectrodeInfo[i])
+                insElectrode.type = "wins"
+                insNNs = genNNs(p,insElectrode)
+		insHslab, insHₗ, insHᵣ = HcontactGen(p,NNs,insElectrode) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
+                connectDict = Dict{String,Function}("-x"=>insHᵣ,"+x"=>insHₗ)
+                Hᵥ = connectDict[ElectrodeInfo[i].connectfrom]
+                Σk(k) = Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+		Σks[i] = Σk
+            else
+                NNs = genNNs(p,ElectrodeInfo[i])
+		P = changeBasis(p,ElectrodeInfo[i])
+		Hslab, Hₗ, Hᵣ = HcontactGen(p,NNs,ElectrodeInfo[i]) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
+                #connectDict = Dict{String,Function}("-x"=>Hᵣ,"+x"=>Hₗ)
+                if(ElectrodeInfo[i].connectfrom=="-x")
+                    Hᵥ = Hᵣ
+                    Σk = k -> Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+                    #Σk(k) = Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+                    Σks[i] = deepcopy(Σk)
+                    #Σk(k) = Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+		    #Σks[i] = Σk
+                else
+                    Hᵥ = Hₗ
+                    Σk = k -> Σgen(p,Hslabk),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+                    #Σk(k) = Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+                    Σks[i] = deepcopy(Σk)
+                end
+                #Hᵥ = connectDict[ElectrodeInfo[i].connectfrom]
+            end
+            #Σk(k) = Σgen(p,Hslab(k),Hₗ(k).+Hᵣ(k),Hᵥ(k),ElectrodeInfo[i],P)
+            #Σk(k) = Σgen(p,Hslab(k),Hₗ(k),Hᵣ(k),ElectrodeInfo[i],P)
+	end
+	return Σks
+end=#
 
 # return a vector of Σ(k) functions which return Σₖ(E) which return a sparse nsite × nsite matrix at a given energy
 function genΣₖs(p::NamedTuple,ElectrodeInfo::Vector{Electrode})   
 	nE = size(ElectrodeInfo)[1]
 	Σks = Vector{Function}(undef,nE)
 	for i = 1:nE # define a self-energy function for every electrode attached to device
-		NNs = genNNs(p,ElectrodeInfo[i])
-		P = changeBasis(p,ElectrodeInfo[i])
-		Hslab, Hₗ, Hᵣ = HcontactGen(p,NNs,ElectrodeInfo[i]) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
-		Σk(k) = Σgen(p,Hslab(k),Hₗ(k),Hᵣ(k),ElectrodeInfo[i],P)
-		Σks[i] = Σk
+            NNs = genNNs(p,ElectrodeInfo[i])
+            P = changeBasis(p,ElectrodeInfo[i])
+            #(Hslab, Hₗ, Hᵣ) = HcontactGen(p,NNs,ElectrodeInfo[i]) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
+            Hs = HcontactGen(p,NNs,ElectrodeInfo[i]) 
+            # Thus, Hs = (Hslab(k), Hₗ(k), Hᵣ(k))
+            # ∃ one contact on left, (nE-1) Contacts on right
+            iCinD = Int.(sign(-i+1.5)/2+2.5) # gets the right index for the coupling hamiltonian  
+            iCfromD = Int.(sign(i-1.5)/2+2.5) # gets the right index for the coupling hamiltonian  
+            if(p.electrodeMaterial=="mtjweyl")
+                # doing some jank to get the coupling matrices right
+                insElectrode = deepcopy(ElectrodeInfo[i])
+                insElectrode.type = "wins"
+                insNNs = genNNs(p,insElectrode)
+                #println("InsNNs: \n")
+                #display(insNNs)
+                #insHslab, insHₗ, insHᵣ = HcontactGen(p,NNs,insElectrode) # returns in-electrode matrix, then H_inelectrode(k), H_contact(k) for transverse k
+                HsWMTJ = HcontactGen(p,insNNs,insElectrode)
+                V  = HsWMTJ[iCinD]
+                βₐ = Hs[iCfromD] # away from device
+                βₜ = Hs[iCinD] # towards device
+            else
+                V  = Hs[iCinD]
+                βₐ = Hs[iCfromD] # away from device
+                βₜ = Hs[iCinD] # towards device
+            end
+            #Σk(k) = Σgen(p,Hs[1](k),Hᵥₑ(k),Hᵥₘ(k),ElectrodeInfo[i],P)
+            kxes, kweights, kindices = genTetBZ(electrodeParams(p,ElectrodeInfo[1]),1000,0,0)
+            Σk(k) = TΣgen(p,Hs[1](k),βₐ(k),βₜ(k),V(k),ElectrodeInfo[i],P)
+            #Σk(k) = Σgen(p,Hs[1](k),βₐ(k),βₜ(k),V(k),ElectrodeInfo[i],P)
+            #Σk(k) = ∫Σgen(p,Hs[4], Hs[1](k), βₐ(k), βₜ(k), V(k),ElectrodeInfo[i],P,k,kxes,kweights)
+            #Σk(k) = Σgen(p,Hs[1](k),Hs[2](k).+Hs[3](k),Hᵥₘ(k),ElectrodeInfo[i],P)
+            Σks[i] = Σk
 	end
 	return Σks
 end
@@ -149,10 +221,12 @@ function electrodeSiteToDeviceIndex(p::NamedTuple, ElectrodeInfo::Electrode,ivec
 end
 
 function changeBasis(p::NamedTuple,ElectrodeInfo::Electrode)
-	nE = ElectrodeInfo.n*p.nsite
-	nD = p.n*p.nsite
-	#println("nE = $nE; nD = $nD")
-	Psite = spzeros(nD,nE)
+	#nE = ElectrodeInfo.n*p.nsite
+	#nD = p.n*p.nsite
+	nE = ElectrodeInfo.n
+	nD = p.n
+        #println("nE = $nE; nD = $nD")
+	Psite = zeros(nD,nE)
 	nx = Int(abs(ElectrodeInfo.xrange[2] - ElectrodeInfo.xrange[1]))
 	ny = Int(abs(ElectrodeInfo.yrange[2] - ElectrodeInfo.yrange[1]))
 	nz = Int(abs(ElectrodeInfo.zrange[2] - ElectrodeInfo.zrange[1]))
@@ -172,7 +246,8 @@ function changeBasis(p::NamedTuple,ElectrodeInfo::Electrode)
 			Psite[deviceSiteIndex,contactSiteIndex] = 1
 		end
 	end
-	return Psite⊗I(p.norb)⊗I(2)
+        return sparse(Psite⊗I(p.nsite*p.norb*2))
+        #return sparse(Psite⊗ones(p.nsite,p.nsite)⊗I(p.norb*2))
 end
 			
 
@@ -204,6 +279,7 @@ function electrodeParams(p::NamedTuple,ElectrodeInfo::Electrode)
 end
 
 function HcontactGen(p::NamedTuple,NNs::Vector{Hopping},ElectrodeInfo::Electrode)
+	CedgeNNs = Hopping[]
 	edgeNNs = Hopping[]
 	LedgeNNs = Hopping[]
 	RedgeNNs = Hopping[]
@@ -211,19 +287,25 @@ function HcontactGen(p::NamedTuple,NNs::Vector{Hopping},ElectrodeInfo::Electrode
 	N = ElectrodeInfo.n*p.nsite*p.norb*2
 	Rvals = RvalsGen(p,ElectrodeInfo)
 	Bfield = ElectrodeInfo.A.(Rvals)
-        Bfield = ElectrodeInfo.A.(Rvals)
-	Hᵦ = zeeman(Bfield,p,ElectrodeInfo)
-        #display(Hᵦ)
-        H₀ = spzeros(ComplexF64,N, N) .+ Hᵦ
+	#Bfield = ElectrodeInfo.A.(Rvals)
+	if(p.electrodeMagnetization==true)
+		Hᵦ = zeeman(Bfield,p,ElectrodeInfo)
+	else
+		Hᵦ = 0I(N)
+	end
+	H₀ = spzeros(ComplexF64,N, N) .+ Hᵦ
 	#NNs = genNNs(p,ElectrodeInfo)
-	pruneHoppings(NNs,p.prune) # cuts off the relevant matrix elements to make thin film
+	NNs = pruneHoppings(NNs,p.prune) # cuts off the relevant matrix elements to make thin film
 	for NN in NNs
 		if(NN.N⋅[1;0;0] > 0)
+			push!(edgeNNs,deepcopy(NN))
 			push!(RedgeNNs,deepcopy(NN))
 		elseif(NN.N⋅[1;0;0] < 0)
+			push!(edgeNNs,deepcopy(NN))
 			push!(LedgeNNs,deepcopy(NN))
 		elseif(NN.edge==true)
 			push!(edgeNNs,deepcopy(NN))
+			push!(CedgeNNs,deepcopy(NN))
 		else
 			H₀[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]
 			H₀[2*NN.b  , 2*NN.a-1] += NN.t[2,1]
@@ -231,33 +313,157 @@ function HcontactGen(p::NamedTuple,NNs::Vector{Hopping},ElectrodeInfo::Electrode
 			H₀[2*NN.b  , 2*NN.a  ] += NN.t[2,2]
 		end
 	end
-	Hc = makeElectrodeH(p,ElectrodeInfo,edgeNNs)
+	Hₑ = makeElectrodeH(p,ElectrodeInfo,edgeNNs)
+	Hc = makeElectrodeH(p,ElectrodeInfo,CedgeNNs)
 	Hₗ = makeElectrodeH(p,ElectrodeInfo,LedgeNNs)
 	Hᵣ = makeElectrodeH(p,ElectrodeInfo,RedgeNNs)
 	function Hslab(k::Vector{Float64})
 		return Hc(k).+H₀	
 	end	
-	return Hslab, Hₗ, Hᵣ
+	function H(k::Vector{Float64})
+		return Hₑ(k).+H₀	
+	end	
+	return Hslab, Hₗ, Hᵣ, H
 end
 
+function ∫Σgen(p::NamedTuple, H::Function, Hslab::SparseMatrixCSC, βₐ::SparseMatrixCSC, βₜ::SparseMatrixCSC, V::SparseMatrixCSC, ElectrodeInfo::Electrode, P::SparseMatrixCSC, k::Vector{Float64}, kxes::Vector{Vector{Float64}}, kweights::Vector{Float64}, cutoff::Float64=10^-5*eV)
+    n = ElectrodeInfo.n*p.nsite*p.norb*2
+    kvals = [[kₓ[1],k[2],k[3]] for kₓ in kxes]
+    function Σ(E::Float64)
+        Gₑ = spzeros(ComplexF64,n,n)
+        Gₑs = map(k->grInv((E+im*p.η)*I(n) .- H(k)),kvals)
+        for i in eachindex(kweights)
+                Gₑ .+= kweights[i]*Gₑs[i]
+        end
+        Gsurf = grInv((E+im*p.η)*I(n) .- Hslab .- βₜ*Gₑ*βₐ)
+        Σ_surf = V*Gₑ*V'
+        return P*Σ_surf*P'
+    end
+    return Σ
+end
 
-#function Σgen(p::NamedTuple,H::Matrix,Hₗ::Matrix, Hᵣ::Matrix, ElectrodeInfo::Electrode, cutoff::Float64=10^-7*eV)
-function Σgen(p::NamedTuple,H::SparseMatrixCSC,Hₗ::SparseMatrixCSC, Hᵣ::SparseMatrixCSC, ElectrodeInfo::Electrode, P, cutoff::Float64=10^-7*eV)
+function TΣgen(p::NamedTuple,H::SparseMatrixCSC,βₐ::SparseMatrixCSC, βₜ::SparseMatrixCSC, V::SparseMatrixCSC, ElectrodeInfo::Electrode, P, cutoff::Float64=10^-12*eV)
+#function Σgen(p::NamedTuple,H::SparseMatrixCSC,H_coupling::SparseMatrixCSC, Hᵥ::SparseMatrixCSC, ElectrodeInfo::Electrode, P, cutoff::Float64=10^-7*eV)
     n = ElectrodeInfo.n*p.nsite*p.norb*2
     # so H needs to be instantiated and called outside of the loop
-	H_coupling = Hₗ .+ Hᵣ# couples a layer to the infinite on both sides
+    #H_coupling = Hₗ .+ Hᵣ# couples a layer to the infinite on both sides
+    #BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
     function Σ(E::Float64)
-        Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*H_coupling'
+        #Gₑ = grInv((E+im*p.η)*I(n) .- H) # guess for the green's functions in the electrodes
+        #Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*Hᵥₘ'
+        #Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*H_coupling'
         # converge the self energy 
         error = 1
-        #for i = 1:40
+        # using transfer matrix method described in 
+        ω = (E + im*p.η)*I(n)
+        t₀ = grInv(ω.-H)*βₐ
+        #t̃₀ = grInv(ω.-H)*βₜ
+        t̃₀ = grInv(ω.-H)*βₜ
+        #t₁ = grInv(I(n) .- t₀*t̃₀ .- t̃₀*t₀)*t₀^2
+        t̃₋ = I(n); t̃ᵢ = Array(t̃₀)
+        t₋ = I(n); tᵢ = Array(t₀)
+        Tᵢ = zeros(ComplexF64,n,n)
+        Tᵢ .+= t₀
+		Π = I(n)
+		while error > cutoff
+			#println("error = $error, size(T) = $(size(Tᵢ))")
+			T₋ = deepcopy(Tᵢ)
+			t̃₋ = t̃ᵢ
+			t₋ = tᵢ
+			#T₋ = deepcopy(Tᵢ)
+			#t̃₋ = deepcopy(t̃ᵢ)
+			#t₋ = deepcopy(tᵢ)
+			Π = Π*t̃₋
+			#Π = deepcopy(Π*t̃₋)
+			#display(Π)
+			#println("")
+        	t̃ᵢ = inv(I(n) .- t₋*t̃₋ .- t̃₋*t₋)*t̃₋^2
+        	tᵢ = inv(I(n) .- t₋*t̃₋ .- t̃₋*t₋)*t₋^2
+            Tᵢ .+= Π*tᵢ
+			error = norm(Tᵢ .- T₋)/norm(Tᵢ)	
+		end
+                #println("Converged, error = $error")
+                effH = Array(ω .- H .- βₜ*Tᵢ)
+		Gsurf = inv(effH)
+
+		#Gsurf = grInv((E+im*p.η)*I(n) .- H .- conj(V)*Gₑ*βₐ) # guess for the green's functions in the electrodes
+        #Gsurf = grInv(
+        Σ_surf = V*Gsurf*V'
+        #Σ_surf = V*Gsurf*V'
+        #Σ_surf = (βₐ)*Gₑ*(V)'
+        #Σ_surf = spzeros(ComplexF64,n,n)
+        return sparse(P*Σ_surf*P')
+    end
+    return Σ
+end
+#function Σgen(p::NamedTuple,H::Matrix,Hₗ::Matrix, Hᵣ::Matrix, ElectrodeInfo::Electrode, cutoff::Float64=10^-7*eV)
+function Σgen(p::NamedTuple,H::SparseMatrixCSC,βₐ::SparseMatrixCSC, βₜ::SparseMatrixCSC, V::SparseMatrixCSC, ElectrodeInfo::Electrode, P, cutoff::Float64=10^-13*eV)
+#function Σgen(p::NamedTuple,H::SparseMatrixCSC,H_coupling::SparseMatrixCSC, Hᵥ::SparseMatrixCSC, ElectrodeInfo::Electrode, P, cutoff::Float64=10^-7*eV)
+    n = ElectrodeInfo.n*p.nsite*p.norb*2
+    # so H needs to be instantiated and called outside of the loop
+    #H_coupling = Hₗ .+ Hᵣ# couples a layer to the infinite on both sides
+    #BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+    function Σ(E::Float64)
+        #Gₑ = grInv((E+im*p.η)*I(n) .- H .- Hᵥₐ'*I(n)*Hᵥₘ) # guess for the green's functions in the electrodes
+        Gₑ = grInv((E+im*p.η)*I(n) .- H) # guess for the green's functions in the electrodes
+        #Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*Hᵥₘ'
+        #Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- 0.1*I(n))*H_coupling'
+        # converge the self energy 
+        error = 1
+        Σ = βₜ*grInv((E+im*p.η)*I(n) .- H)*βₐ # guess for the green's functions in the electrodes
+        #β₁ = βₜ; β₂ = βₐ
+        #β = βₜ .+ βₐ
         while error > cutoff
+            #println("Gₑʳ convergence error loop: $error")
+            Σ₀ = deepcopy(Σ)
+            Σ = βₜ*grInv((E+im*p.η)*I(n) .- H .- Σ₀)*βₐ # guess for the green's functions in the electrodes
+            #Σ = βₜ*Gₑ0*βₐ
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- Σ_contact) # guess for the green's functions in the electrodes
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- conj(βₜ)*Gₑ0*βₐ) # guess for the green's functions in the electrodes
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- βₜ'*Gₑ0*βₐ) # guess for the green's functions in the electrodes
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- β'*Gₑ0*β) # guess for the green's functions in the electrodes
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- β'*Gₑ0*β) # guess for the green's functions in the electrodes
+            #Gₑ = grInv((E+im*p.η)*I(n) .- H .- β'*Gₑ0*β) # guess for the green's functions in the electrodes
+            error =  norm(Σ.-Σ₀)/norm(Σ₀)
+        end
+        #println("\nΣ = ")
+        # loop to SCF for surface?
+        #Σ_surf = (V.+βₐ)*Gₑ*(V.+βₐ)'
+        #Gsurf = grInv((E+im*p.η)*I(n) .- H .- V*Gₑ*βₐ) # guess for the green's functions in the electrodes
+        #Gsurf = grInv((E+im*p.η)*I(n) .- H .- conj(V)*Gₑ*βₐ) # guess for the green's functions in the electrodes
+        #Gsurf = grInv(
+        Σ_surf = V*Gₑ*βₐ
+        #Σ_surf = (βₐ)*Gₑ*(V)'
+        #Σ_surf = βₐ*Gₑ*βₜ'
+        #Σ_surf = βₜ*Gₑ*βₐ'
+        #Σ_surf = V*Gₑ*βₐ'
+        #Σ_surf = Hᵥ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵥ'
+        #Σ_surf = Hᵥ'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵥ
+        #Σ_surf = spzeros(ComplexF64,n,n)
+        return P*Σ_surf*P'
+        #for i = 1:40
+        #=while error > cutoff*n
             #println("Σ convergence error loop: $error")
             Σ_guess0 = deepcopy(Σ_guess)
             Σ_guess = H_coupling*grInv((E+im*p.η)*I(n) .- H .- Σ_guess0)*H_coupling'
+            #Σ_guess = H_coupling'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess0)*H_coupling
             error =  norm(Σ_guess.-Σ_guess0)
         end
-        if(ElectrodeInfo.connectfrom=="-x")
+        #println("\nΣ = ")
+        # loop to SCF for surface?
+        Σ_surf = Hᵥ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵥ'
+        #Σ_surf = Hᵥ'*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵥ
+        return P*Σ_surf*P'=#
+        #=while error > cutoff*n
+            #println("Σ convergence error loop: $error")
+            Σ_surf0 = deepcopy(Σ_surf)
+            Σ_surf = Hᵥ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess .-Σ_surf0)*Hᵥ'
+            error =  norm(Σ_surf.-Σ_surf0)
+        end
+        #display(Σ_guess)
+        #Σ_surf = Hᵥ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵥ'
+        return P*Σ_surf*P'=#
+        #=if(ElectrodeInfo.connectfrom=="-x")
                 Σ_surf = Hᵣ*grInv((E+im*p.η)*I(n) .- H .- Σ_guess)*Hᵣ'
                 return P*Σ_surf*P'
         else
@@ -268,7 +474,7 @@ function Σgen(p::NamedTuple,H::SparseMatrixCSC,Hₗ::SparseMatrixCSC, Hᵣ::Spa
                 #show(size(Σ_surf))
                 #show(size(P))
                 return P*Σ_surf*P'
-        end
+        end=#
     end
     return Σ
 end
@@ -292,18 +498,18 @@ function nnHoppingMat(NNs,p)
 end
 
 # Add a bond to the list of bonds, given some list of bonds, coefficient in spin basis, index of both sites, and param list
-function pushHopping!(NNs::Vector, t, ia::Vector{Int}, ib::Vector{Int}, p) 
+#=function pushHopping!(NNs::Vector, t, ia::Vector{Int}, ib::Vector{Int}, p) 
 	a = xyztoi(p,ia); b = xyztoi(p,ib);
 	ra = xyztor(p,ia); rb = xyztor(p,ib); r = rb - ra;
 	# for hopping term
 	NN = deepcopy(Hopping(a,b,ia,ib,ra,rb,r,t, false, [0;0;0],""))
 	push!(NNs,NN)
-end
+end=#
 
 rot(θ) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 
-function weylHopping(p::NamedTuple,NNs::Vector{Hopping},ia::Vector{Int})
+#=function weylHopping(p::NamedTuple,NNs::Vector{Hopping},ia::Vector{Int})
         iorb = ia[5]
         t = 3*nextsite(iorb)*p.t*(I(2))
 	pushHopping!(NNs, t, ia, ia, p)
@@ -327,7 +533,7 @@ function weylHopping(p::NamedTuple,NNs::Vector{Hopping},ia::Vector{Int})
 			pushHopping!(NNs, t, ia, ib, p)
 		end
 	end
-end
+end=#
 	
 function nextsite(isite::Int)
 	return -2*isite + 1
@@ -339,16 +545,18 @@ function genNNs(p,ElectrodeInfo::Electrode) # all of the terms in the hamiltonia
 	ep = electrodeParams(p,ElectrodeInfo) # electrodeparams
 	ix = 0
 	nx = 1
+	hopping! = hoppingDict[ElectrodeInfo.type]
 	for iy = 0:(ep.ny-1)
 		for iz = 0:(ep.nz-1)
-		     for isite = 0:(ep.nsite-1)
-			for iorb = 0:(ep.norb-1)
-                            ia = (copy(Int.([ix,iy,iz,isite,iorb])));
-                            if(ElectrodeInfo.type=="weyl")
-                                    weylHopping(ep,NNs,ia)
-                            end
+		    for isite = 0:(ep.nsite-1)
+				for iorb = 0:(ep.norb-1)
+					ia = (copy(Int.([ix,iy,iz,isite,iorb])));
+					hopping!(ep,NNs,ia)
+					#if(ElectrodeInfo.type=="weyl")
+					#        weylHopping(ep,NNs,ia)
+					#end
+				end
 			end
-                     end
 		end
 	end
 	# now fix the designation for the vectors that hop out of the lattice
@@ -380,7 +588,8 @@ function pruneHoppings(NNs, type)
 	if("z" ∈ type)
 		deleteat!(NNs, findall(NN->NN.N[3]!=0,NNs))
 	end
-	return NNs
+        #display(NNs)
+        return NNs
 end
 
 

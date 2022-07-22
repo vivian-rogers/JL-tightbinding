@@ -32,12 +32,11 @@ b₁ = B[:,1]; b₂ = B[:,2]; b₃ = B[:,3]
 nx = 1; ny = 1; nz = 1; n = nx*ny*nz
 
 function kdictGen(A)
-	#B = transpose(π*inv(A))
-	# changed for weird def of weyl BZ
 	B = transpose(2*π*inv(A))
-	#η = (1-a*
 	kdict = Dict(
 		    "Γ" => B*[ 0  ;    0;   0],
+		    "Γ + iX₁" => B*[ im/2  ;    0;   0],
+		    "Γ + 10*iX₁" => B*[ 10*im/2  ;    0;   0],
 		    "A" => B*[ 1/2;  1/2; 1/2],
 		    "M" => B*[ 1/2;  1/2;   0],
 		    #"M" => B*[   0;  1/2; 1/2],
@@ -71,8 +70,8 @@ end
 
 params = (
 	  t = t, t₁ = t₁, t₂ = t₂, t₃ = t₃, t₄ = t₄, t₅ = t₅, t₆ = t₆, t₇ = t₇, t₈ = t₈, t₉ = t₉,
-	  vf = 10^6, η = 10^-4,
-	  ε = ε, 
+	  vf = 10^6, η = 10^-3,
+	  ε = ε, ϵ₁ = 2*eV, 
 	  a₁ = a₁, a₂ = a₂, a₃ = a₃, A = A, a=a, b=a, c=c,
 	  SLa₁ = a₁, SLa₂ = a₂, SLa₃ = a₃,
 	  nx = nx, ny = ny, nz = nz, n = n, norb = 2, nsite = 1,
@@ -108,7 +107,13 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 	else
 		arpack = false
 	end
-	SLparams = (
+        pruning = String[]
+        if(p.prune == [])
+            pruning = pruneHoppingType(runtype)
+        else
+            pruning = p.prune
+        end
+        SLparams = (
 		SLa₁ = newA[:,1], SLa₂ = newA[:,2], SLa₃ = newA[:,3],
 		#A = hcat(SLa₁,SLa₂,SLa₃),
 		A = newA,
@@ -116,11 +121,12 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 		kdict = kdictGen(newA),
 		runtype=runtype,
 		arpack=arpack,
-		prune=pruneHoppingType(runtype),
-		klist = ["M","Γ","X₁","M","X₂","Γ"],
+		prune=pruning,
+		#prune=pruneHoppingType(runtype),
+		klist = ["M","Γ","X₁","M","X₂","Γ", "Γ + iX₁"],
 		fieldtype=fieldtype
 	)
-	return merge(params,SLparams)
+	return merge(p,SLparams)
 end
 
 function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works for cubic lattice
@@ -131,14 +137,14 @@ function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works f
     X1 = p.kdict["X₁"];
     X2 = p.kdict["X₂"];
     X3 = p.kdict["X₃"];
-	function divFixNaN(a::Int,b::Int) # for this particular instance, n/0 represents a Γ-centred sampling @ k = 0. 
-		if(b==0)
-			return 0
-		else
-			return a/b
-		end
-	end
-	for ix = -nx:nx
+    function divFixNaN(a::Int,b::Int) # for this particular instance, n/0 represents a Γ-centred sampling @ k = 0. 
+            if(b==0)
+                    return 0
+            else
+                    return a/b
+            end
+    end
+    for ix = -nx:nx
         for iy = -ny:ny
             for iz = -nz:nz
                 kindex = [iy + ny + 1; iz + nz + 1]

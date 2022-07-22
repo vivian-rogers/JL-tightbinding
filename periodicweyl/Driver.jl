@@ -110,18 +110,17 @@ function runDOS(n, H, λ,save=false,path="", Bavg=0)
 		fig = addLLs(Bavg, fig, 5, 0, false, true)
 	end
 	if(save) SaveFigure(fig,path,"DOS") end
-	return DOS, Evals
+	return DOS, Eval
 end
 
 # function to calculate transport from device parameters
 function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
         println("============= NEGF transport ============")
         Electrodes = [
-		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x","weyl",A)
-		Electrode([p.nx,p.nx+1],[0,p.ny],[0,p.nz],p.ny*p.nz,"+x","weyl",A)
+		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x",p.electrodeMaterial,A);
+		Electrode([p.nx,p.nx+1],[0,p.ny],[0,p.nz],p.ny*p.nz,"+x",p.electrodeMaterial,A)
 	]
-        negf_params = (prune = union(["x"],(p.prune)),verbose=false, nelectrodes=2)
-	#negf_params = (prune = union(["x"],(p.prune)), nelectrodes=2, η=10^-8*eV)
+        negf_params = (prune = union(["x"],(p.prune)),verbose=false, nelectrodes=size(Electrodes)[1])
 	negf_params = merge(p,negf_params)
 	H = runSCF(negf_params,A) # generates H(k)
 	println("Generating self-energy matrices for electrodes...")
@@ -129,20 +128,32 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 	println("Defining Gʳ, Current operator, etc...")
 	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
-        nkx = 0; nky = p.nk; nkz = p.nk;
+        nkx = p.nk*!("x" ∈ negf_params.prune); nky = p.nk*!("y" ∈ negf_params.prune); nkz = p.nk*!("z" ∈ negf_params.prune);
 	kgrid, kweights, kindices = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
-	#E_samples = [0.2]
-	#E_samples = [0.2,0.5,1.0,2.0,5.0]
-	#E_samples = [0.5]
-	#E_samples = [E for E = 0.1:0.5:2.1]
-	#E_samples = [E for E = 0.1:1.0:2.1]
-        println("Sweeping transmission over kgrid: $nkx, $nky, $nkz ")
-        TofE, Tmap, TmapList = totalT(genT, kindices, kgrid, kweights, p.E_samples, minimum(p.E_samples))
-        #display(TmapList)
-	#display(Tmap)
-	display(TofE)
-	plot1D(TofE,p.E_samples,"Transmission","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
-        plotMat(Tmap',"k₂","k₃")
+        println("Sweeping transmission over kgrid: $(nkx*2+1), $(nky*2+1), $(nkz*2+1) ")
+        #TofE, Tmap, TmapList = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
+        #TofE, Tmap = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
+        parallelk = ((nkx+1)*(nky+1)*(nkz+1) > 8)
+        S = 0.05 # scale for k-map
+        #println("parallelk = $parallelk, negf_params.prune = $(negf_params.prune)")
+        TofE, Tmap, imTmap= totalT(genT, kindices, S .* kgrid, kweights, p.E_samples, parallelk, p.E_samples[1])
+        TofE = S^2*TofE
+        #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
+        #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
+        plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],log10.(Tmap'),"k₂","k₃","T(ky,kz)",:rainbow)
+        #plotMat(Tmap',"k₂","k₃")
+        display(TofE)
+        #plot1D(TofE,p.E_samples,"Transmission","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
+        
+		#=
+	    DOSofE = NEGF.DOS(genGʳ,kgrid,kweights,p.E_samples,parallelk)
+        dE = (maximum(p.E_samples) - minimum(p.E_samples))/size(p.E_samples)[1]
+        totDOS = dE*sum(DOSofE);
+        println("Total # states = $totDOS")
+        plot1D(DOSofE,p.E_samples,"DOS","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
+		=#
+		#plotMat(imTmap',"k₂","k₃")
+
         #plotMat([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
         #plot2D([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
 	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	

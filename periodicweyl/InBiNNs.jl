@@ -8,8 +8,8 @@ using LinearAlgebra
 using UsefulFunctions
 using Operators
 #using MaterialParameters
+#using Materials
 using Bands
-
 
 export nnHoppingMat, genNNs, pruneHoppings, RvalsGen
 
@@ -25,6 +25,7 @@ function xyztoi(p,ivec, N::Vector{Int} = [0;0;0])
 	return iorb + p.norb*isite + p.nsite*p.norb*ix + p.nsite*p.norb*p.nx*iy + p.nsite*p.norb*p.nx*p.ny*iz + 1
 end
 
+include("../src/Materials.jl")
 # Same as above, except returns the corresponding atomic position of each index vector 
 # useful for calculating ∫A⋅δR peierls phase
 function xyztor(p,ivec)
@@ -63,7 +64,7 @@ function RvalsGen(p)
 end
 
 # Defines a cᵦ†cₐ term 
-mutable struct Hopping
+#=mutable struct Hopping
 	a::Int # orbital/site index 1
 	b::Int # orbital/site index 2 with PBC
 	ia # index vector of site A
@@ -75,7 +76,7 @@ mutable struct Hopping
 	edge::Bool # does this hop off the edge of the superlattice?
 	N # vector describing the [n₁;n₂;n₃]⋅[a₁;a₂;a₃] superlattice unit cell of site ib
 	desc::String
-end
+end=#
 
 
 # Generate H₀ and make a list of edge bonds for generating H(k)
@@ -104,7 +105,7 @@ function nnHoppingMat(NNs,p)
 end
 
 # Add a bond to the list of bonds, given some list of bonds, coefficient in spin basis, index of both sites, and param list
-function pushHopping!(NNs::Vector, t, ia::Vector{Int}, ib::Vector{Int}, p) 
+#=function pushHopping!(NNs::Vector, t, ia::Vector{Int}, ib::Vector{Int}, p) 
 	a = xyztoi(p,ia); b = xyztoi(p,ib);
 	ra = xyztor(p,ia); rb = xyztor(p,ib); r = rb - ra;
 	# for hopping term
@@ -157,7 +158,7 @@ function pushHopping!(NNs::Vector, t, ia::Vector{Int}, ib::Vector{Int}, p)
 	NN.desc = desc
 	#println(desc)
 	push!(NNs,NN)
-end
+end=#
 
 rot(θ) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
@@ -179,23 +180,12 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 			for ix = 0:(p.nx-1)
 				isite = 0
 				for iorb = 0:(p.norb-1)
-					# loop over each site in the given ix,iy,iz unit cell and generate cᵦ^†cₐ terms on hamiltonian
-					# note: Δi represents the offset to the index vector, the hopping term loop is defined using such
-					# key: di = [Δi_x, Δi_y, Δi_z, iᵦ - iₐ (dif of atom indices in unit cell), Δi_orbital
-					# Then ia and ib represent hamiltonian matrix index for hilbert space:
-					# [Unit cell] ⊗ [site] ⊗ [orbital px or py]
-					# Hamiltonian is now spinless, see p.t₂*I(2) in line 108. Can use p.t₁*σ₁, say. 
-					# indices to loop over to generate τₓ: top right, bottom right, top left, bottom left, up, down
-					
-					#UTR = [isite,isite,isite,nextsite(isite),orb]; UBR = [isite,isite-1,isite,nextsite(isite),orb]; 
-					#UTL = [isite-1,isite,isite,nextsite(isite),orb]; UBL = [isite-1,isite-1,isite,nextsite(isite),orb]; 
-					#DTR = [isite,isite,isite-1,nextsite(isite),orb]; DBR = [isite,isite-1,isite-1,nextsite(isite),orb]; 
-					#DTL = [isite-1,isite,isite-1,nextsite(isite),orb]; DBL = [isite-1,isite-1,isite-1,nextsite(isite),orb]; 
-					
-					#U = [0,0,1,0,orb]; D = [0,0,-1,0,orb]; 
 					ia = copy([ix,iy,iz,isite,iorb]);
 					#pushHopping!(NNs, -nextsite(iorb)*3*p.t*I(2), ia, ia, p)
-					t = 3*nextsite(iorb)*p.t*(I(2))
+                                        hoppingType! = hoppingDict[p.deviceMaterial]
+                                        hoppingType!(p,NNs,ia)
+                                        #=
+                                        t = 3*nextsite(iorb)*p.t*(I(2))
 					pushHopping!(NNs, t, ia, ia, p)
 					for ax = 1:3
 						for dir = [-1,1]
@@ -228,7 +218,7 @@ function genNNs(p) # all of the terms in the hamiltonian get added here, get bac
 							t = -(1/2)*nextsite(iorb)*p.t*(I(2))
 							pushHopping!(NNs, t, ia, ib, p)
 						end
-					end
+					end=#
 				end
 			end
 		end
