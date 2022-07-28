@@ -5,6 +5,7 @@ using SparseArrays
 using UsefulFunctions
 using Constants
 using Operators
+using Distributed
 
 export gGrid, gridOffset, Hβgen, ConstructHamiltonian
 
@@ -35,14 +36,15 @@ function ConstructHamiltonian(p,M)
     Hᵦ = Hβgen(p,M)
     Hfree = freeElectron(p)
     Hweyl = weylH(p)
+    H₀ = im*p.η*I(p.nG*p.norb*2)
     function H(k::Vector{Float64})
-        #H =  Hweyl(k) .+ Hᵦ
+        H =  Hweyl(k) .+ Hᵦ .+ H₀
         #H =  Hweyl(k) .+ I(p.ng*p.norb)⊗σ₂
-        println("Hfree")
+        #=println("Hfree")
         display(Hfree(k))
         println("H periodic magnetic")
-        display(Hᵦ)
-        H =  Hfree(k) .+ I(p.nG*p.norb)⊗σ[3]
+        display(Hᵦ)=#
+        #H =  Hfree(k) .+ I(p.nG*p.norb)⊗σ[3]
         #H =  Hfree(k) .+ Hᵦ
         #H = Hβ(k) .+ Hfree(k) .+ 2*Diagonal(ones(p.ng*2*p.norb))
         return H
@@ -61,11 +63,12 @@ function gGrid(p::NamedTuple)
     return Gvecs
 end
 
-function gGrid(B::Matrix, maxG::Int = 10, gcut::Float64 = 50.0*eV)
+function gGrid(B::Matrix, maxG::Vector{Int} = [10,10,10], gcut::Float64 = 50.0*eV)
         gvecs = Gvec[]
-        for gx = -maxG:maxG
-            for gy = -maxG:maxG
-                for gz = -maxG:maxG
+        println("Generating $(2*maxG + [1,1,1]) G grid...")
+        for gx = -maxG[1]:maxG[1]
+            for gy = -maxG[2]:maxG[2]
+                for gz = -maxG[3]:maxG[3]
                     ng = [gx;gy;gz]
                     G = B*ng
                     E = ħ^2*(G⋅G)/(2*m₀*q)
@@ -75,6 +78,7 @@ function gGrid(B::Matrix, maxG::Int = 10, gcut::Float64 = 50.0*eV)
         end
         # remove all g vectors above a threshold
         deleteat!(gvecs, findall(g->(g.E > gcut),gvecs))
+        println("Using $(size(gvecs)[1]) / $(prod(maxG*2 + [1,1,1])) G vectors")
         # now add their indices
         for ig in eachindex(gvecs)
             gvecs[ig].i = deepcopy(ig)
@@ -87,10 +91,18 @@ end
 
 
 function gridOffset(p::NamedTuple, ivec::Vector{Int})
-    i = (p.maxG+1)*[1,1,1] + ivec
+    i = (p.maxG+[1,1,1]) + ivec
     ind = CartesianIndex(i[1],i[2],i[3])
+    #println("Gvec # $(ivec), index # $(ind)")
     return ind
 end
+
+#=function weylH2(p)
+    gvecs = gGrid(p)
+    function Hweyl(k::Vector{Float64})
+   
+end=#
+
 
 function weylH(p)
     gvecs = gGrid(p)
@@ -98,7 +110,7 @@ function weylH(p)
         H = spzeros(ComplexF64,p.ng*p.norb*2,p.ng*p.norb*2)
         # build up a tridiagonal matrix corresponding to the diagonals in the weyl hamiltonian
         # in hilbert space |g>⊗|spin>
-        upper = zeros(ComplexF64,p.ng*2-1); diag = zeros(ComplexF64,p.ng*2); lower = zeros(ComplexF64,p.ng*2-1)
+        upper = zeros(ComplexF64,p.ng*p.norb*2-1); diag = zeros(ComplexF64,p.ng*p.norb*2); lower = zeros(ComplexF64,p.ng*p.norb*2-1)
         diracterm = Vector{Matrix}(undef,p.ng)
         for G in gvecs
         #for ig in eachindex(gvecs)
@@ -108,9 +120,11 @@ function weylH(p)
             for ax = 1:3
                 weylAtK .+= effk[ax]*σ[ax]
             end
+            Gterm = dropzeros(sparse(gpos⊗τ₁⊗weylAtK))
+            #println("Size of H = $(size(H)), size of term = $(size(Gterm))")
             H .+= sparse(gpos⊗τ₁⊗weylAtK)
         end
-        return (p.vf*(ħ/q)*H.+p.m*τ₃⊗I(p.ng*2))
+        return (p.vf*(ħ/q)*H .+ p.m*I(p.ng)⊗τ₃⊗I(2))
     end
     return Hweyl
 end
