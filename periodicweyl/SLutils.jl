@@ -4,8 +4,10 @@ push!(LOAD_PATH, "../src/")
 module SLutils
 using Constants
 using LinearAlgebra
+using Arpack
+using Optim
 
-export pruneHoppingType, Agen, βgen
+export pruneHoppingType, Agen, βgen, findBandgap
 
 function pruneHoppingType(runtype::String="")
 	println("runtype = $runtype")
@@ -216,5 +218,43 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 	end
 end
 	#main(params)
+
+
+function findBandgap(p::NamedTuple)
+    startk = [0.1;0.01].*(rand(2) .-0.5) # yes this is a bit jank,,,
+    function bandgap(H::Function)
+            # assumes that the gap lies around E = 0
+            function gap(k::Vector{Float64})
+                    newk = p.B*vcat(k,[0])
+                    Energies, Eigstates = eigs(H(newk), nev=1, maxiter=100000, which=:SM) 
+                    Energies = real.(Energies)
+                    
+                    #assume particle-hole symmetry...
+                    ΔE = 2*minimum(abs.(Energies))
+                    #conduction = Energies[findall(E->(real(E)>=0),Energies)]
+                    #valence = Energies[findall(E->(real(E)<=0),Energies)]
+                    #println("C = $conduction")
+                    #println("V = $valence")
+                    #ΔE = abs(minimum(conduction)-maximum(valence))
+                    
+                    #println("ΔE = $ΔE")
+                    return ΔE
+            end
+            lower = -0.5*[1;1]; upper=-lower
+            #results = optimize(gap,startk)
+            #method=NelderMead()
+            f_tol = 10^-7
+            method=NelderMead()
+            #method=SimulatedAnnealing(temperature=(f(i)=(0.2)^i))
+
+            results = optimize(gap,startk,method,Optim.Options(f_tol=10^-7, iterations=1000)
+                              )
+            #results = optimize(gap,startk,NelderMead())
+            #results = optimize(gap,lower,upper,NelderMead())
+            #results = optimize(gap,lower,upper,ParticleSwarm(lower=lower,upper=upper,n_particles=5))
+            display(results)
+            return minimum(results)
+    end
+end
 
 end

@@ -15,7 +15,7 @@ using PlotStuff
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 200; ny = 1; nz = 1; 
+nx = 1; ny = 1; nz = 1; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -29,11 +29,11 @@ runparams = (
              #E_samples = [E for E = -6:0.5:6],
              #E_samples = [E for E = -6:0.005:6],
              nk = 80,
-             β = 0.10*eV, runtype = "neellattice", fieldtype = "β", η = 10^-4, ηD = 10^-3, 
-             verbose = false, plotfield = true, bands=false, θ=350.0, sweep="none",
+             β = 0.10*eV, runtype = "false", fieldtype = "β", η = 10^-4, ηD = 10^-3, 
+             transport=false, verbose = false, plotfield = true, bands=true, θ=350.0, sweep="none",
              electrodeMagnetization=true,electrodeMaterial="weyl",
              #electrodeMagnetization=false,electrodeMaterial="metal",
-             deviceMagnetization=true,deviceMaterial="weyl",
+             deviceMagnetization=false,deviceMaterial="weyl3",
              startDWs = 20*nm, DWwidth = 18*nm, DWspacing = 100*nm, 
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
              λ = 2*nm,

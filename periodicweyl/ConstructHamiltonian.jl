@@ -16,6 +16,7 @@ using Constants
 using InBiNNs
 using VectorPotential
 using Distributions
+using MakiePlots
 #using PlotStuff
 #using GenNNs
 
@@ -149,7 +150,8 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
                 end
                 #plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
                 if(p.plotfield)
-                    plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
+                    render2TDevice(p,Rvals,Bfield,(f(B) = B⋅[0;1;0]),2*nm) 
+                    #plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
                 end
                 #return (Float64.(Bfield), Float64.(Bsurf), avgB)
 		return (Bfield, Bsurf, avgB)

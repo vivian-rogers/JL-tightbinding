@@ -201,10 +201,14 @@ function main(p,A=A,save=false,path="")
 	
 	# project onto Q = |In><In| for bands purposes
 	# [unit cell] ⊗ [A/B site] ⊗ [atom type] ⊗ [px, py] ⊗ [spin]
-	TofE = NEGF_2contacts_1layer(p,A)
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
-	println("Done!\n")
-        return TofE
+        if(p.transport)
+            TofE = NEGF_2contacts_1layer(p,A)
+            println("Done!\n")
+            return TofE
+        else
+            println("Done!\n")
+        end
 end
 end

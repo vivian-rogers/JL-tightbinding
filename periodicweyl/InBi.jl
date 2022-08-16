@@ -48,6 +48,11 @@ function kdictGen(A)
 		    "-X₂" => B*[  0;  -1/2;0],
 		    "X₃" => B*[   0;    0; 1/2],
 		    "-X₃" => B*[  0;    0;-1/2],
+		    
+                    "-X₃" => B*[  0;    0;-1/2],
+		    "-X₃" => B*[  0;    0;-1/2],
+		    "-X₃" => B*[  0;    0;-1/2],
+		    "-X₃" => B*[  0;    0;-1/2],
 		    )
 		    #="Γ" => B*[ 0  ;    0;   0],
 		    "A" => B*[ 1/2;  1/2; 1/2],
@@ -123,11 +128,14 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
 		arpack=arpack,
 		prune=pruning,
 		#prune=pruneHoppingType(runtype),
-		klist = ["M","Γ","X₁","M","X₂","Γ", "Γ + iX₁"],
+		#klist = ["K","Γ","W","R","K"],
+		klist = ["M","Γ","X₁","M","X₂","Γ", "X₃"],
 		fieldtype=fieldtype
 	)
 	return merge(p,SLparams)
 end
+
+
 
 function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works for cubic lattice
     # nx, ny, and nz specifically refer to # of points in IBZ
