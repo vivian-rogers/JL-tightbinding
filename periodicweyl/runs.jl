@@ -12,35 +12,45 @@ using Constants
 using UsefulFunctions
 using LinearAlgebra
 using PlotStuff
+using SaveStuff
+using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 1; ny = 1; nz = 1; 
+nx = 5; ny = 1; nz = 1; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 
 runparams = (
+             # fermi energy, σ of background disorder
              μ = 0.0*eV, μ_disorder = 0.025*eV, 
-             #E_samples = [0.1,0.2,0.3,0.4],
-             E_samples = [0.05],
-             #E_samples = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],
-             #E_samples = [E for E = 0:0.1:1.5],
-             #E_samples = [E for E = -6:0.5:6],
-             #E_samples = [E for E = -6:0.005:6],
-             nk = 80,
-             β = 0.10*eV, runtype = "false", fieldtype = "β", η = 10^-4, ηD = 10^-3, 
-             transport=false, verbose = false, plotfield = true, bands=true, θ=350.0, sweep="none",
+             
+             # energy range for transport 
+             E_samples = [0.1],
+             nk = 120, # half of brillouin zone used in transport
+             
+             # info for saving output of runs
+             path = "./runs/testruns/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
+             
+             # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
+             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-3, 
+             
+             # run parameters
+             transport=false, verbose = false, plotfield = true, bands=true, θ=30.0, sweep="none",
+             
+             # materials used in the device
              electrodeMagnetization=true,electrodeMaterial="weyl",
-             #electrodeMagnetization=false,electrodeMaterial="metal",
-             deviceMagnetization=false,deviceMaterial="weyl3",
-             startDWs = 20*nm, DWwidth = 18*nm, DWspacing = 100*nm, 
+             deviceMagnetization=true,deviceMaterial="weyl",
+             
+             # if defining stripe domain superlattice       # penetration depth 
+             startDWs = 10*nm, DWwidth = 5*nm, DWspacing = 15*nm, λ = 2*nm,
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
-             λ = 2*nm,
+             # if using proximity-magnetized profile
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
              #deviceMagnetization=false,deviceMaterial="ins",
+             # will prune periodic boundaries in "x","y","z"
              prune=[]
-             #prune=["z"]
             )
 
 parms = merge(params,runparams)
@@ -67,6 +77,11 @@ end
 
 function θtoArg(θ::Float64)
     return merge(p, (sweep = "T(DW angle,E)", θ = θ))
+end
+
+if(p.savedata)
+    mkfolder(p.path)
+    mktxt(p.path * "params.txt",string(p))
 end
 
 runFieldTexture(p)

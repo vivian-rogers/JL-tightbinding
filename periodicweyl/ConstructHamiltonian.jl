@@ -50,13 +50,13 @@ function Hgen(p,A::Function)
         #H_onsite = p.μ_disorder*Diagonal(rand(p.n*p.nsite).-0.5)⊗I(p.norb*2) .+ p.μ*I(p.n*p.nsite*p.norb*2)
 	#H_onsite = 0*3*p.t*I(p.n)⊗I(p.nsite)⊗τ₃⊗I(2)
 	Rvals = RvalsGen(p)
-	
+        println("Applying magnetization profile...")
 	# for plotting field at surface
 	Rsurf = Vector{Float64}[]
 	for Rval in Rvals
-		if(Rval[3] ≈ (p.nz-1)*p.a₃[3])
-			push!(Rsurf,Rval)
-		end
+            if(Rval[3] ≈ (p.nz-1)*p.a₃[3])
+                push!(Rsurf,Rval)
+            end
 	end
         if(p.deviceMagnetization==true)
             (Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals)
@@ -150,7 +150,8 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
                 end
                 #plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
                 if(p.plotfield)
-                    render2TDevice(p,Rvals,Bfield,(f(B) = B⋅[0;1;0]),2*nm) 
+                    colorfunc(B) = B⋅[0;1;0]
+                    render2TDevice(p,Rvals,coeff*Bfield,colorfunc,2*nm) 
                     #plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
                 end
                 #return (Float64.(Bfield), Float64.(Bsurf), avgB)

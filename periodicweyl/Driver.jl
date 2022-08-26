@@ -22,6 +22,8 @@ using VectorPotential
 using NEGF
 using Bands
 using PlotStuff
+using SaveStuff
+using JLD2
 
 export main
 
@@ -60,14 +62,19 @@ function runBands(p,nk, H, Q, proj::Bool=false,arpack::Bool=false,save=false,pat
 	#Q = closestPeak(λ) 
 	#Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
 	#Q = I(2)⊗(Diagonal([1 0]))⊗Diagonal([1 1])⊗I(2)
-	if(proj)
+	
+        if(proj)
 		# projects onto Q
 		projStates = expectedValue(Q,Estates)
 		fig = plotBands(klist,nk,E, projStates)
 	else
 		fig = plotBands(klist,nk,E,2)
 	end
-	if(save) SaveFigure(fig,path,"bands"*name) end
+        if(p.savedata) 
+            #jldsave(p.path * "bands.jld2",fig) 
+            mkdelim(p.path * "bandsdata.txt", [collect(1:size(E)[1]) E projStates])
+        end
+        if(p.save) SaveFigure(fig,p.path,"bands"*name) end
 end
 
 
@@ -75,6 +82,8 @@ end
 # input: n = density of evenly-spaced k-grid (0 = γ, 1 = γ, κ', κ, 2 = etc) -- 20 gives reasonable results
 # H(k), λ, boolean to save figs or not, path, boolean to plot total DOS, pseudo-B field to plot pLLs
 # Not super efficient, needs rewriting in recursive green's function formalism in getLDOS
+#=
+
 function runLDOS(n, H, λ,save=false,path="",plotDOS=true,Bavg=0)
 	# generates the evenly-spaced k-grid to integrate spectrum over
 	# kgrid2 includes redundant k-points but IBZ grid generator was bugged, needs fixing for optimization.
@@ -112,6 +121,7 @@ function runDOS(n, H, λ,save=false,path="", Bavg=0)
 	if(save) SaveFigure(fig,path,"DOS") end
 	return DOS, Eval
 end
+=#
 
 # function to calculate transport from device parameters
 function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
@@ -129,24 +139,33 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
         nkx = p.nk*!("x" ∈ negf_params.prune); nky = p.nk*!("y" ∈ negf_params.prune); nkz = p.nk*!("z" ∈ negf_params.prune);
-	kgrid, kweights, kindices = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
+	
+        kgrid, kweights, kindices, kxs, kys, kzs = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
         println("Sweeping transmission over kgrid: $(nkx*2+1), $(nky*2+1), $(nkz*2+1) ")
         #TofE, Tmap, TmapList = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         #TofE, Tmap = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         parallelk = ((nkx+1)*(nky+1)*(nkz+1) > 8)
-        S = 0.05 # scale for k-map
+        S = 0.15 # scale for k-map
         #println("parallelk = $parallelk, negf_params.prune = $(negf_params.prune)")
         TofE, Tmap, imTmap= totalT(genT, kindices, S .* kgrid, kweights, p.E_samples, parallelk, p.E_samples[1])
         TofE = S^2*TofE
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
-        plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],log10.(Tmap'),"k₂","k₃","T(ky,kz)",:rainbow)
+        figh = pyplotHeatmap(S*kys/(π/p.a),S*kzs/(π/p.a),Tmap',"ky (π/a)","kz (π/a)","T(ky,kz)",:nipy_spectral, p.savedata, p.path)
         #plotMat(Tmap',"k₂","k₃")
-        display(TofE)
-        #plot1D(TofE,p.E_samples,"Transmission","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
-        
-		#=
-	    DOSofE = NEGF.DOS(genGʳ,kgrid,kweights,p.E_samples,parallelk)
+        #if(p.savedata)
+            #SavePlots(figh,p.path,"Tmap")
+        #end
+        figT = plot1D(TofE,[p.E_samples],"Conductance (e²/h)","E (eV)","Stripe Domain",0.0,4.0,minimum(p.E_samples),maximum(p.E_samples))
+        if(p.savedata)
+            mkdelim(p.path * "transmission.txt", [p.E_samples TofE])
+            mkdelim(p.path * "Tmap.txt", [vec(S.*kgrid) vec(Tmap')])
+            #jldsave(p.path * "fig_Tmap.jld2", figh)
+            #jldsave(p.path * "fig_transmission.jld2", figT)
+            SavePlots(figT,p.path,"transmission")
+        end
+        #=
+        DOSofE = NEGF.DOS(genGʳ,kgrid,kweights,p.E_samples,parallelk)
         dE = (maximum(p.E_samples) - minimum(p.E_samples))/size(p.E_samples)[1]
         totDOS = dE*sum(DOSofE);
         println("Total # states = $totDOS")
@@ -194,7 +213,7 @@ function main(p,A=A,save=false,path="")
             Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
             #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
             #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
-            runBands(p,2^6,H,Q,true,p.arpack)
+            runBands(p,2^5,H,Q,true,p.arpack)
         end
         #println("testH₀ = \n $testH")
 	# some arbitrary operators for bands routine

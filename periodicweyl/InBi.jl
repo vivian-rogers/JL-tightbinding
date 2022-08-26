@@ -145,6 +145,21 @@ function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works f
     X1 = p.kdict["X₁"];
     X2 = p.kdict["X₂"];
     X3 = p.kdict["X₃"];
+    if(nx != 0)
+        kxs = collect(LinRange(-X1[1],X1[1],2*nx+1));
+    else
+        kxs = [0]
+    end
+    if(ny != 0)
+        kys = collect(LinRange(-X2[2],X2[2],2*ny+1));
+    else
+        kys = [0]
+    end
+    if(nz != 0)
+        kzs = collect(LinRange(-X3[3],X3[3],2*nz+1));
+    else
+        kzs = [0]
+    end
     function divFixNaN(a::Int,b::Int) # for this particular instance, n/0 represents a Γ-centred sampling @ k = 0. 
             if(b==0)
                     return 0
@@ -175,7 +190,7 @@ function genBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works f
     end
     ksum = sum([w for w in kweights])
     kweights = (1/ksum).*kweights
-    return kpoints, kweights, kindices
+    return kpoints, kweights, kindices, kxs, kys, kzs
 end
 #main(params)
 

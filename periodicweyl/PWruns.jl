@@ -65,8 +65,8 @@ Mz = zeros(ComplexF64,maxG[1],maxG[2],maxG[3]);=#
 
 # simple bloch helix 
 
-My[gridOffset(p,[1,0,0])] = β/2; My[gridOffset(p,[-1,0,0])] = β*1/2
-Mz[gridOffset(p,[1,0,0])] = β*im/2; Mz[gridOffset(p,[-1,0,0])] = -β*im/2
+#My[gridOffset(p,[1,0,0])] = β/2; My[gridOffset(p,[-1,0,0])] = β*1/2
+#Mz[gridOffset(p,[1,0,0])] = β*im/2; Mz[gridOffset(p,[-1,0,0])] = -β*im/2
 
 
 #simplest bloch lattice
@@ -82,8 +82,8 @@ Mz[gridOffset(p,[3,0,0])] = -β*im*0.2; Mz[gridOffset(p,[-3,0,0])] = β*im*0.2
 #Mx[gridOffset(p,[1,0,0])] = 1/2; Mx[gridOffset(p,[-1,0,0])] = 1/2
 
 
-#Mx[gridOffset(p,[0,0,0])] = 1*β; 
-Mz[gridOffset(p,[0,0,0])] = 1.0; 
+Mx[gridOffset(p,[0,0,0])] = 1.0; 
+#Mz[gridOffset(p,[0,0,0])] = 1.0; 
 
 #Mz[gridOffset(p,[-2,0,0])] = 1/2
 
@@ -130,10 +130,10 @@ nk = 5
 #energySurface(p,H,0.20,3,nk,nk)
 neigs = 8
 
-#eigSurface(p,H,I(p.nG)⊗γ⁵,neigs,"z",nk,nk,0.0)
+eigSurface(p,H,I(p.nG*p.norb)⊗σ[3],neigs,"y",nk,nk,0.0)
 #eigSurface(p,ConstructHamiltonian(p,[V,0.55*Mx,0.25*My,0.25*Mz]),I(p.nG)⊗γ⁵,neigs,"z",nk,nk,0.0)
 
-complexEnergySurface(p,H,0.0,400,nk,nk,2,3)
+#complexEnergySurface(p,H,0.0,400,nk,nk,2,3)
 #complexEigSurface(p,ConstructHamiltonian(p,[V,Mx,My,Mz]),I(p.nG)⊗I(p.norb)⊗σ[2],neigs,2,nk,nk,2*nm,[0.0;0.0;0.0])
 #eigSurface(p,H,I(p.nG)⊗γ⁵,neigs,"z",4,nk,0.0)
 #eigSurface(p,H,I(p.nG)⊗I(p.norb)⊗σ[2],neigs,"z",7,nk,0.0)

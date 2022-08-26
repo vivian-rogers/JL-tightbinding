@@ -1,8 +1,7 @@
 push!(LOAD_PATH, "../src/")
 
-using SymPy
-#using Polynomials
-
+using AbstractAlgebra
+using Symbolics
 using Operators
 using LinearAlgebra
 using BlockDiagonals
@@ -17,14 +16,11 @@ fG = 2*π/(na*nλ)
 
 
 
-a, vf, m, ħ, β = symbols("a, vf, m, ħ, β", positive=true)
-λ = symbols("λ", integer=true, positive=true)
-E = symbols("E")
-G = 2*PI/(a*λ)
+(a, vf, m, ħ, β, λ, E) = @variables a::Real vf::Real m::Real ħ::Real β::Real λ::Real E::Complex
+G = 2*π/(a*λ)
 
 # generate the weyl hamiltonian
-ky, kz = symbols("ky, kz", real=true)
-kx = symbols("kx", complex=true)
+kx, ky, kz = @variables kx::Complex ky::Real kz::Real
 diag = [τ₁⊗((kx+i*G)*σ₁ .+ ky*σ₂ .+ kz*σ₃) for i = -maxG:maxG]
 Hweyl =  Array(BlockDiagonal(diag))
 
@@ -33,15 +29,15 @@ Hweyl =  Array(BlockDiagonal(diag))
 function gtoi(g::Int)
     return Int(maxG+1+g)
 end
-Mx = zeros(Sym,nG)
-My = zeros(Sym,nG)
-Mz = zeros(Sym,nG)
+Mx = zeros(Complex,nG)
+My = zeros(Complex,nG)
+Mz = zeros(Complex,nG)
 #My[gtoi(-1)] = im*β/2;    My[gtoi(1)] = -im*β/2
 Mz[gtoi(-1)] = β/2; Mz[gtoi(1)] = β/2
 M = [Mx,My,Mz]
 
 # generate the periodic exchange field term
-Hᵦ = zeros(Sym,nG*norb*2,nG*norb*2)
+Hᵦ = zeros(Complex,nG*norb*2,nG*norb*2)
 for ax = 1:3
     Mi = M[ax]
     Mᵢ(index) = (if(index < 1 || index > (2*maxG+1)) return 0 else return Mi[index] end)
@@ -52,7 +48,7 @@ for ax = 1:3
             Gterm[ib,ia] = Mᵢ(gtoi(gb-ga))
         end
     end
-    Hᵦᵢ = Gterm⊗Sym.(τ₀⊗σ[ax])
+    Hᵦᵢ = Gterm⊗Num.(τ₀⊗σ[ax])
     #display(Hᵦᵢ)
     Hᵦ .+= Hᵦᵢ
 end
@@ -74,6 +70,7 @@ display(H₀)
 #display(H₀.eigenvals())
 println("\n\nGenerating characteristic polynomial...")
 #@time charpoly = (E*I(nG*norb*2) .- H₀).det(method="berkowitz")
+#=
 @time charpoly = (E*I(nG*norb*2) .- H₀).det(method="LU")
 #atΓ = charpoly.subs(Rekx,0)
 
