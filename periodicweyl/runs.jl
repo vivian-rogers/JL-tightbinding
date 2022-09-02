@@ -17,7 +17,7 @@ using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 5; ny = 1; nz = 1; 
+nx = 100; ny = 1; nz = 1; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -28,23 +28,23 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 120, # half of brillouin zone used in transport
+             nk = 200, # half of brillouin zone used in transport
              
              # info for saving output of runs
              path = "./runs/testruns/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
-             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-3, 
+             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
              
              # run parameters
-             transport=false, verbose = false, plotfield = true, bands=true, θ=30.0, sweep="none",
+             transport=true, verbose = false, plotfield = true, bands=false, θ=30.0, sweep="none",
              
              # materials used in the device
-             electrodeMagnetization=true,electrodeMaterial="weyl",
+             electrodeMagnetization=false,electrodeMaterial="metal",
              deviceMagnetization=true,deviceMaterial="weyl",
              
              # if defining stripe domain superlattice       # penetration depth 
-             startDWs = 10*nm, DWwidth = 5*nm, DWspacing = 15*nm, λ = 2*nm,
+             startDWs = 25*nm, DWwidth = 6*nm, DWspacing = 12*nm, λ = 2*nm,
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
              # if using proximity-magnetized profile
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
@@ -72,22 +72,22 @@ function nxtoArg(nx::Int)
 end
 
 function startDWstoArg(startDWs::Float64)
-    return merge(p, (sweep = "T(Stripe Domain Position,E)", startDWs = startDWs))
+    return merge(p, (sweep = "T(Stripe Domain Position,E)", startDWs = startDWs, path = p.path*"startdw=$(round(startDWs*10^9,sigdigits=3))/"))
 end
 
 function θtoArg(θ::Float64)
     return merge(p, (sweep = "T(DW angle,E)", θ = θ))
 end
 
-if(p.savedata)
-    mkfolder(p.path)
-    mktxt(p.path * "params.txt",string(p))
-end
+mkpath(p.path)
 
 runFieldTexture(p)
 
 #Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
-#Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -5*nm:(1*nm):(0.7*p.SLa₁[1])],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+#(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(4*nm):(0.75*p.SLa₁[1])],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+
+mkdelim(p.path*"blochdwsweep.txt",[x y])
 #Sweep1DSurf((T -> log10.(T))∘runFieldTexture,startDWstoArg,[DWstart for DWstart = -5*nm:(5*nm):(30*nm)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
 #Sweep1DSurf((T -> log10.(T))∘runFieldTexture,θtoArg,[θ for θ = 0.0:10.0:180.0],p.E_samples,"θ DW angle (degrees)", "Energy (eV)","log₁₀(T) (e²/h)",false)
 

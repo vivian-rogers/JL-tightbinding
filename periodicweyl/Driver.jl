@@ -154,15 +154,15 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
         figh = pyplotHeatmap(S*kys/(π/p.a),S*kzs/(π/p.a),Tmap',"ky (π/a)","kz (π/a)","T(ky,kz)",:nipy_spectral, p.savedata, p.path)
         #plotMat(Tmap',"k₂","k₃")
         #if(p.savedata)
-            #SavePlots(figh,p.path,"Tmap")
+        #    SavePlots(figh,p.path,"Tmap")
         #end
-        figT = plot1D(TofE,[p.E_samples],"Conductance (e²/h)","E (eV)","Stripe Domain",0.0,4.0,minimum(p.E_samples),maximum(p.E_samples))
+        #figT = plot1D(TofE,[p.E_samples],"Conductance (e²/h)","E (eV)","Stripe Domain",0.0,4.0,minimum(p.E_samples),maximum(p.E_samples))
         if(p.savedata)
             mkdelim(p.path * "transmission.txt", [p.E_samples TofE])
             mkdelim(p.path * "Tmap.txt", [vec(S.*kgrid) vec(Tmap')])
             #jldsave(p.path * "fig_Tmap.jld2", figh)
             #jldsave(p.path * "fig_transmission.jld2", figT)
-            SavePlots(figT,p.path,"transmission")
+            #SavePlots(figT,p.path,"transmission")
         end
         #=
         DOSofE = NEGF.DOS(genGʳ,kgrid,kweights,p.E_samples,parallelk)
@@ -196,6 +196,10 @@ end
 function main(p,A=A,save=false,path="")
 	
 	# number of sites
+        if(p.savedata)
+            mkpath(p.path)
+            mktxt(p.path * "params.txt",string(p))
+        end
         println("=========== MWSM devices ==============")
         println("performing: $(p.sweep)")
         if(p.verbose)

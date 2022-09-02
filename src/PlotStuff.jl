@@ -5,9 +5,15 @@ using PyPlot
 using ColorSchemes
 using Constants
 using LinearAlgebra
+using Distributed
+using ProgressBars
+using Measures
 
-export plotBands, plot2D, SaveFigure, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors, plotMat
+export plotBands, plot2D, SaveFigure, SavePlots, plotVec, plotSurf, plotFunct, plotScatter, plot1D, addLLs, plot3DSpectra, plot3Dvectors, plotMat
 
+
+fsize=15; fname="arial"
+rc("font", family=fname, size=fsize)
 pyplot()
 function plotVec(x,yvecs, title)
 	nY = size(yvecs)[1]
@@ -122,9 +128,11 @@ function plot1D(x::Vector,ys::Vector{Vector{Float64}},xlab::String="",ylab::Stri
         for i in eachindex(ys)
             y = ys[i]
             if(i==1)
-                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis)
+                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis,color=i, margin = 5mm)
+                Plots.scatter!(x,y,xlabel=xlab,ylabel=ylab,label=false,yscale=yaxis,color=i)
             else
-                Plots.plot!(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis)
+                Plots.plot!(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],color=i,yscale=yaxis)
+                Plots.scatter!(x,y,xlabel=xlab,ylabel=ylab,label=false,color=i,yscale=yaxis)
             end
         end
         #    #if(legend == [])
@@ -149,13 +157,14 @@ function plot1D(x::Vector,ys::Vector{Vector{Float64}},xlab::String="",ylab::Stri
 	#gcf()
 end
 
-function plot1D(x,y,xlab="",ylab="",xmin::Float64=0.0,xmax::Float64=1.0,ymin::Float64=-1.0,ymax::Float64=1.0)
+function plot1D(x,y,xlab="",ylab="",slab=false,xmin::Float64=0.0,xmax::Float64=1.0,ymin::Float64=-1.0,ymax::Float64=1.0)
 	#nY = size(yvecs)[1]
 	#for i = 1:nY
-        Plots.plot(x,y,xlabel=xlab,ylabel=ylab)
+        f = Plots.plot(x,y,xlabel=xlab,ylabel=ylab, guidefont=font(fsize,fname),label=slab)
         ylim(ymin,ymax)
         xlim(xmin,xmax)
         gui()
+        return f
         #fig, ax = PyPlot.subplots();
 	#PyPlot.plot(x,y)
 	#end
@@ -248,8 +257,8 @@ function plotBands(klist, nk, E, projStates, name="")
 		Projvals = collect(projStates[:,iE])
 		#Projvals = collect(projStates[:,iE])
 		#scatter(indices,Evals,c=Projvals, s=0.9)
-		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9)
-		#PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9, vmin = -1, vmax = 1)
+		#PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9)
+		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9, vmin = -1, vmax = 1)
 		#scatter(indices,Evals,c=Projvals, vmin=0, vmax=1,s=0.9)
 		#display(plot!(indices,Evals))
 	end
@@ -281,22 +290,60 @@ end
 	gui(surf)
 end=#
 
-function plotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
-        Plots.gr()
-	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
+function pyplotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :nipy_spectral,save=false, path="")
+	fig, ax = PyPlot.subplots();
+	#=
+        #dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
 	C = 500
 	width = C
-	height = C*dy/dx
+	height = C*AR
 	#surf = PyPlot.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	show(size(z))
 	show(size(x))
 	show(size(y))
         #surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
-        surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+        #surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, cmap = cmap, 
+        #                      norm=matplotlib[:colors][:SymLogNorm](1e-2),
+        #                     size=(width,height), margin=5mm, zscale=:log10)
+        =#
+        min=10^-20
+        vmin = maximum([min,minimum(z)])
+        surf = ax[:imshow](z.+vmin, cmap=cmap, norm=matplotlib[:colors][:LogNorm](vmin=vmin, vmax=10^-2), extent= [minimum(x), maximum(x), minimum(y), maximum(y)])
+        ax[:set_xlabel](xlab)
+        ax[:set_ylabel](ylab)
+        PyPlot.colorbar(surf, label=name)
+        if(save)
+            SaveFigure(fig,path,name)
+            #fig.savefig(path*name*".png")
+            #close(fig)
+        end
+        #heatmap!
+        #xlabel
+	#gui(surf)
+        return surf
+end
+
+function plotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false, AR=0.7)
+        Plots.pyplot()
+	dx = maximum(x)-minimum(x); dy = maximum(y)-minimum(y)
+	C = 500
+	width = C
+	height = C*AR
+	#surf = PyPlot.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
+	show(size(z))
+	show(size(x))
+	show(size(y))
+        #surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap)
+        #surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, cmap = cmap, 
+        #                      norm=matplotlib[:colors][:SymLogNorm](1e-2),
+        #                     size=(width,height), margin=5mm, zscale=:log10)
+        surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height), margin=5mm, zscale=:log10)
+
 	#surf = Plots.heatmap(x,y,z, xlabel=xlab, ylabel=ylab, title=name, c = cmap, size=(width,height))
 	#heatmap!
-        xlabel
+        #xlabel
 	gui(surf)
+        return surf
 end
 
 function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
@@ -313,6 +360,23 @@ function plotSurf(x,y,z,xlab="",ylab="",name="",cmap= :inferno,save=false)
 end
 
 #function nameGen
+
+function Sweep2DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="")
+    nx = size(xvals)[1]; ny = size(yvals)[1]
+    zgrid = zeros(Float64,ny,nx)
+    #BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+    iter = ProgressBar(1:nx)
+    for ix in iter
+    #Threads.@threads for ix = 1:nx
+        for iy = 1:ny
+            x = xvals[ix]; y = yvals[iy];
+            zgrid[iy,ix] = f(gridToArgs(x,y))
+        end
+    end
+    plotHeatmap(xvals,yvals,zgrid,xlab,ylab,zlab,:rainbow)
+end
+
+
 function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="",xscale::Float64=1,surf::Bool=true)
     zmat = zeros(size(yvals)[1],size(xvals)[1])
     for i in eachindex(xvals)
@@ -321,18 +385,28 @@ function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
         args = gridToArgs(x)
         out = f(args)
         zmat[:,i] = deepcopy(out)
+        GC.gc()
         #zmat[:,i] = deepcopy(√(x)*yvals.^2)
     end
     if(surf)
-        plotHeatmap(xvals,yvals,zmat,xlab,ylab)
+        f = plotHeatmap(xvals,yvals,zmat,xlab,ylab)
     else
-        plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],:log10)
+        f = plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],:log10)
     end
+    return (xscale*xvals,reduce(hcat,[zmat[i,:] for i in eachindex(yvals)]))
 end
+
+
+function SavePlots(fig,path,name="",type=".png")
+        Plots.savefig(fig, path*"/"*name*type)
+        Plots.close(fig)
+end
+
 
 function SaveFigure(fig,path,name="",type=".png")
 	fig.savefig(path*"/"*name*type)
-	close(fig)
+	PyPlot.close(fig)
+        GC.gc()
 end
 
 function plot3Dvectors(Rvals,fvals,cvals,xlab="x position (nm)",ylab="y position (nm)", zlab="z position (nm)", name="",cmap="bwr",scale=(1/nm),zscale=1,save=false)
@@ -424,7 +498,7 @@ function plotFunct(R,f::Function,xlab="",ylab="",name="",cmap="bwr",xyscale=(1/n
 end
 
 
-function plotBands(klist, nk, E)
+function plotBands(klist, nk, E, max::String="auto")
 	#Plots.pyplot()
 	nSymPts = size(klist)[1]
 	indices = LinRange(0,nSymPts-1, size(E)[1])
@@ -439,12 +513,18 @@ function plotBands(klist, nk, E)
 	end
 	PyPlot.xticks(kSymPts,klist)
 	xlim(0, nSymPts-1)
-	maxE = maximum(E)
-	minE = minimum(E)
-	#maxE = Emax
+        if(max=="auto")
+            maxE = maximum(E)
+            minE = minimum(E)
+            ylim(minE,maxE)
+        else
+            maxE = Float64(max)
+            minE = -2.0
+            ylim(minE,maxE)
+        end
+        #maxE = Emax
 	#minE = -Emax
 	ylabel("E - Ef (eV)")
-	ylim(minE,maxE)
 	for iE = 1:nE
 		Evals = collect(E[:,iE])
 		#plot(indices,Evals)

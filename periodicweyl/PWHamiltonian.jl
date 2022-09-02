@@ -36,7 +36,7 @@ function ConstructHamiltonian(p,M)
     Hᵦ = Hβgen(p,M)
     Hfree = freeElectron(p)
     Hweyl = weylH(p)
-    H₀ = (10^-6 + 10^-8*im)*I(p.nG*p.norb*2) .+ Diagonal(p.μ_disorder*(rand(p.nG*p.norb*2).-0.5))
+    H₀ = (10^-4 + 10^-6*im)*I(p.nG*p.norb*2) .+ Diagonal(p.μ_disorder*(rand(p.nG*p.norb*2).-0.5))
     function H(k::Union{Vector{ComplexF64},Vector{Float64}})
         k = k.+[1;1;1]*10^-8 # offset k slightly to avoid weird stuff
         H =  dropzeros(Hweyl(k) .+ Hᵦ .+ H₀)
@@ -114,9 +114,25 @@ end=#
 function weylH(p)
     gvecs = gGrid(p)
     function Hweyl(k::Union{Vector{ComplexF64},Vector{Float64}})
-        H = spzeros(ComplexF64,p.ng*p.norb*2,p.ng*p.norb*2)
+        Hw = spzeros(ComplexF64,p.ng*p.norb*2,p.ng*p.norb*2)
         # build up a tridiagonal matrix corresponding to the diagonals in the weyl hamiltonian
         # in hilbert space |g>⊗|spin>
+        
+        # linear dirac hamiltonian
+        #=NNs = Hopping[]
+        for iG in eachindex(gvecs)
+            G = gvecs[iG]
+            for iorb = 0:(p.norb-1)
+                ia = [G.i, iorb]
+                ib = [G.i, Int(!(Bool(iorb)))] # maps 0->1, 1->0 for τₓ orbital
+                a = gtoi(p,ia); b = gtoi(p,ib)
+                t = p.t*matdot(sin.(k+G.G),(σ))
+                H[2*b-1, 2*a-1] = t[1,1]
+                H[2*b  , 2*a-1] = t[2,1]
+                H[2*b-1, 2*a  ] = t[1,2]
+                H[2*b  , 2*a  ] = t[2,2]
+            end
+        end=#
         NNs = Hopping[]
         for iG in eachindex(gvecs)
             G = gvecs[iG]
@@ -124,14 +140,27 @@ function weylH(p)
                 ia = [G.i, iorb]
                 ib = [G.i, Int(!(Bool(iorb)))] # maps 0->1, 1->0 for τₓ orbital
                 a = gtoi(p,ia); b = gtoi(p,ib)
-                t = matdot((k+G.G),(σ))
-                H[2*b-1, 2*a-1] = t[1,1]
-                H[2*b  , 2*a-1] = t[2,1]
-                H[2*b-1, 2*a  ] = t[1,2]
-                H[2*b  , 2*a  ] = t[2,2]
+                t = p.t*matdot(sin.(p.A*(k+G.G)),(σ))
+                Hw[2*b-1, 2*a-1] = t[1,1]
+                Hw[2*b  , 2*a-1] = t[2,1]
+                Hw[2*b-1, 2*a  ] = t[1,2]
+                Hw[2*b  , 2*a  ] = t[2,2]
             end
         end
-        return (p.vf*(ħ/q)*H .+ p.m*I(p.ng)⊗τ₃⊗I(2))
+        # now add the mass term 
+        Hm = spzeros(ComplexF64,p.ng*p.norb,p.ng*p.norb)
+        NNs = Hopping[]
+        for iG in eachindex(gvecs)
+            G = gvecs[iG]
+            for iorb = 0:(p.norb-1)
+                ia = [G.i, iorb]
+                ib = [G.i, iorb] # maps 0->1, 1->0 for τₓ orbital
+                a = gtoi(p,ia); b = gtoi(p,ib)
+                t = ((-1)^iorb)*p.t*(3 - cos.(p.A*(k+G.G))⋅[1;1;1])
+                Hm[b, a] = t
+            end
+        end
+        return (Hw .+ p.m*Hm⊗I(2))
     end
     return Hweyl
 end

@@ -111,6 +111,24 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 			end
 		end
                 return fmdotPβ
+	elseif(runtype=="multineeldws")
+            function mndwβ(R::Vector{Float64})
+                θ = 0
+                error = 1
+                # see: O'Handley on domain walls
+                #a = 5*nm; l = 1*nm
+                #a = 30*nm; l = 5*nm
+                i = 0
+                decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
+                while error > 10^-5
+                    θ₋ = deepcopy(θ)
+                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
+                    i += 1
+                    error = abs(θ-θ₋)
+                end
+                return β₀*[sin(θ);cos(θ);0]*decay
+            end
+            return mndwβ
 	elseif(runtype=="multiblochdws")
             function mbdwβ(R::Vector{Float64})
                 θ = 0
@@ -122,7 +140,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
                 decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
                 while error > 10^-5
                     θ₋ = deepcopy(θ)
-                    θ += 2*atan(π*exp((p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
+                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
                     i += 1
                     error = abs(θ-θ₋)
                 end

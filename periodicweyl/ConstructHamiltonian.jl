@@ -151,7 +151,7 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
                 #plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
                 if(p.plotfield)
                     colorfunc(B) = B⋅[0;1;0]
-                    render2TDevice(p,Rvals,coeff*Bfield,colorfunc,2*nm) 
+                    render2TDevice(p,Rvals,coeff*Bfield,colorfunc,10.0) 
                     #plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
                 end
                 #return (Float64.(Bfield), Float64.(Bsurf), avgB)

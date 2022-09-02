@@ -21,7 +21,7 @@ t = 1.0*eV; # In-Bi px-px,py-py
 ε = 0.0*eV; ε₂ = 0.0*eV #onsite energy for In, Bi
 
 # structural properties
-a = 5*Å; c = a
+a = 10*Å; c = a
 A = [a 0 0; 0 a 0; 0 0 c]
 a₁ = A[:,1]; a₂ = A[:,2]; a₃ = A[:,3]
 B = transpose(2*π*inv(A))

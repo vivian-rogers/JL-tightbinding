@@ -28,14 +28,14 @@ function paramGen(nx::Int,ny::Int,nz::Int)
 
     maxG = Int.(round.((4/a)*[maximum(a₁),maximum(a₂),maximum(a₃)])) # highest brillouin zone to sample to. Needs to be big enough to make program not crash.
     #sG = 2*maxG+1 # number of G points in PW grid
-    #gcut = 0.5*eV 
+    #gcut = 8.5*eV 
     gcut = [5;0;0]
     Gs, nG = gGrid(B,maxG,gcut) # truncated G grid for hamiltonian
 
     sG = (2*maxG[1]+1,2*maxG[2]+1,2*maxG[3]+1)
     params = (
-           arpack = false, η = 10^-3*eV, μ_disorder=0*eV, ng=nG, nG=nG, sG = sG,
-           maxG=maxG, gcut = gcut, A = A, B = B, norb = 2, vf = 10^6, m = 0.5*eV
+           arpack = false, η = 10^-3*eV, μ_disorder=0.001*eV, ng=nG, nG=nG, sG = sG,
+           maxG=maxG, gcut = gcut, A = A, B = B, norb = 2, vf = 10^6, m = 0.5*eV, t = 1*eV
              )
     return params
 end
@@ -55,7 +55,7 @@ My = zeros(ComplexF64,maxG[1],maxG[2],maxG[3]);
 Mz = zeros(ComplexF64,maxG[1],maxG[2],maxG[3]);=#
 
 # add stripe domain with periodicity of grid
-β = 0.0
+β = 1.0
 #V[gridOffset(p,[1,0,0])] = β*1; V[gridOffset(p,[-1,0,0])] = β*1
 
 
@@ -65,8 +65,8 @@ Mz = zeros(ComplexF64,maxG[1],maxG[2],maxG[3]);=#
 
 # simple bloch helix 
 
-#My[gridOffset(p,[1,0,0])] = β/2; My[gridOffset(p,[-1,0,0])] = β*1/2
-#Mz[gridOffset(p,[1,0,0])] = β*im/2; Mz[gridOffset(p,[-1,0,0])] = -β*im/2
+My[gridOffset(p,[1,0,0])] = β/2; My[gridOffset(p,[-1,0,0])] = β*1/2
+Mz[gridOffset(p,[1,0,0])] = β*im/2; Mz[gridOffset(p,[-1,0,0])] = -β*im/2
 
 
 #simplest bloch lattice
@@ -82,7 +82,7 @@ Mz[gridOffset(p,[3,0,0])] = -β*im*0.2; Mz[gridOffset(p,[-3,0,0])] = β*im*0.2
 #Mx[gridOffset(p,[1,0,0])] = 1/2; Mx[gridOffset(p,[-1,0,0])] = 1/2
 
 
-Mx[gridOffset(p,[0,0,0])] = 1.0; 
+Mx[gridOffset(p,[0,0,0])] = 0.001; 
 #Mz[gridOffset(p,[0,0,0])] = 1.0; 
 
 #Mz[gridOffset(p,[-2,0,0])] = 1/2
@@ -125,10 +125,10 @@ plotBands(klist,nk,E, projStates)
 
 γ⁵ = σ[1]⊗I(2)
 γᴸ= (1/2)*(I(4) .- γ⁵)
-nk = 5
+nk = 25
 #kslice(p,H,0.24,"x",nk,nk,1.0)
 #energySurface(p,H,0.20,3,nk,nk)
-neigs = 8
+neigs = 8*p.arpack + p.nG*p.norb*2*(!p.arpack)
 
 eigSurface(p,H,I(p.nG*p.norb)⊗σ[3],neigs,"y",nk,nk,0.0)
 #eigSurface(p,ConstructHamiltonian(p,[V,0.55*Mx,0.25*My,0.25*Mz]),I(p.nG)⊗γ⁵,neigs,"z",nk,nk,0.0)
