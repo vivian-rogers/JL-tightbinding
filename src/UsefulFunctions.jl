@@ -1,13 +1,142 @@
 
 module UsefulFunctions
 
-using LinearAlgebra
+export rotate, average, ⊗, recInv
 
-export ⊗, rotate
+using LinearAlgebra
+using SparseArrays
 
 ⊗(A,B) = kron(A,B)
 ×(u,v) = cross(u,v)
-CartProd(x,y) = [(x,y) for i in x for j in y]
+#CartProd(x,y) = [[x,y] for i in x for j in y]
+function CartProd(Vecs)
+        type = typeof(Vecs[1][1])
+        #init = Any[]
+        #nextstep = Any[]
+        init = copy(Vecs[1])
+        #nextstep = deepcopy(init)
+        for iarg in 2:size(Vecs)[1]
+            #v1 = Vecs[iarg-1]
+            v2 = Vecs[iarg]
+            nextstep = [vcat(i,j) for i in init for j in v2]
+            init = copy(nextstep)
+        end
+        return init
+end
+
+function mkfolder(path)
+	if(isdir(path))
+		println("$path already exists...")
+		#rm(path, recursive=true)
+	else
+		mkdir(path)
+	end
+end
+
+
+#CartProd(x,y) = [repeat(x, inner=[size(y,1)]) repeat(y, outer=[size(x,1)])]
+#CartProd(x,y,z) = [[x,y,z] for i in x, for j in y, for ]
+function average(v)
+	N = size(v)[1]
+	return sum(v)*(1/N)
+end
+
+avg(v) = average(v)
+
+function genTetBZ(p::NamedTuple,nx::Int=0, ny::Int=100, nz::Int=100) # only works for cubic lattice
+    # nx, ny, and nz specifically refer to # of points in IBZ
+    kpoints = Vector{Float64}[]
+    kindices = Vector{Int}[]
+    kweights = Float64[]
+    X1 = p.kdict["X₁"];
+    X2 = p.kdict["X₂"];
+    X3 = p.kdict["X₃"];
+    function divFixNaN(a::Int,b::Int) # for this particular instance, n/0 represents a Γ-centred sampling @ k = 0. 
+            if(b==0)
+                    return 0
+            else
+                    return a/b
+            end
+    end
+    for ix = -nx:nx
+        for iy = -ny:ny
+            for iz = -nz:nz
+                kindex = [iy + ny + 1; iz + nz + 1]
+                k = divFixNaN(ix,nx)*X1 + divFixNaN(iy,ny)*X2 + divFixNaN(iz,nz)*X3
+                kweight = 1
+                if(abs(ix) == nx)
+                    kweight *= 1/2
+                end
+                if(abs(iy) == ny)
+                    kweight *= 1/2
+                end
+                if(abs(iz) == nz)
+                    kweight *= 1/2
+                end
+                push!(kpoints,k)
+                push!(kindices,kindex)
+                push!(kweights,kweight)
+            end
+        end
+    end
+    ksum = sum([w for w in kweights])
+    kweights = (1/ksum).*kweights
+    return kpoints, kweights, kindices
+end
+
+#grInv(A) = inv(Array(A))
+exactInv(A) = inv(Array(A))
+
+# using Woodbury matrix recursion identity
+function recInv(M::SparseMatrixCSC, sizecutoff::Int=128)
+    nx = size(M)[2]
+    ny = size(M)[1]
+    if(nx <= sizecutoff || ny <= sizecutoff)
+        return sparse(exactInv(M))
+    else
+        hxu = Int(round(nx/2))+1; hyu = Int(round(ny/2))+1
+        hxl = hxu -1; hyl = hyu -1
+        #A = deepcopy(M[1:hyl,1:hxl]); U = deepcopy(M[1:hyl,hxu:nx]);
+        #V = deepcopy(M[hyu:ny,1:hxl]); C = deepcopy(M[hyu:ny,hxu:nx]);
+        A = M[1:hyl,1:hxl]; U = M[1:hyl,hxu:nx];
+        V = M[hyu:ny,1:hxl]; C = M[hyu:ny,hxu:nx];
+        Cinv = sE(recInv(C,sizecutoff))
+        #Minv = spzeros(ComplexF64,ny,nx)
+        Γ = Cinv*sE(V); Δ = sE(U)*Cinv
+        Σ = sE(recInv(A .- Δ*V,sizecutoff))
+        Minv = [Σ          -Σ*Δ;
+                -Γ*Σ  (Cinv .+ Γ*Σ*Δ)]
+        #Minv[1:hyl,1:hxl] .= Σ
+        #Minv[1:hyl,hxu:nx] .= -Σ*U*Cinv
+        #Minv[hyu:ny,1:hxl] .= -Cinv*V*Σ
+        #Minv[hyu:ny,hxu:nx] .= Cinv .+ Cinv*V*Σ*U*Cinv
+        if(typeof(Minv) == SparseMatrixCSC)
+            return dropzeros(Minv)
+        else
+            return sparse(Minv)
+        end
+    end
+end
+
+
+
+grInv = recInv
+
+function sparseEnough(M::SparseMatrixCSC)
+       return M
+       n = size(M)[1]*size(M)[2]
+       nz = nnz(M)
+       sparsitycutoff = 0.1
+       if(nnz(M)/n^2 < sparsitycutoff)
+           return dropzeros(M)
+       else
+           return Array(M)
+       end
+end
+
+sE = sparseEnough
+
+findnearest(A::AbstractArray,t) = findmin(abs.(A.-t))[2]
 
 
 mutable struct Atom
@@ -23,6 +152,7 @@ mutable struct Connection
 	Atom2 
 	NN # number denoting collection of vectors to use in lattice
 	radiusCoeff # scaling coefficient to put on vectors
+#end
 
 function ∇(f::Function, R, dx=10^-11)
 	ndim = size(R)[1]
@@ -35,49 +165,8 @@ function ∇(f::Function, R, dx=10^-11)
 	return grad
 end
 
-function nn1_vects(a)
-	vects = Any[]
-	for i = 1:3; 
-		for j = [-1,1]
-			# r₁ vector is defined in src/HolmiumParameters, may warrant reformulation in terms of lattice vectors	
-			r = zeros(3);
-			r[i] = j*(a/2);
-			push!(vects,r)
-		end
-	end
-	return vects
-end
-
-
-function nn2_vects(a)
-	vects = Any[]
-	for i = 1:3; 
-		for j = [-1,1]
-			for k = [-1,1]
-				r = ones(3);
-				#just consider only the two relevant dimensions
-				dims = [1,2,3]
-				dims = filter!(dim->dim!=i,dims)
-				r[i] = 0
-				r[dims[1]] = j*a
-				r[dims[2]] = k*a
-				push!(vects,r)
-			end
-		end
-	end
-	return vects
-end
-
 rot(θ) = [cosd(θ) -sind(θ); sind(θ) cosd(θ)]
 
-function avg(v)
-	N = size(v)[1]
-	sum = 0
-	for i in v
-		sum += i
-	end
-	return sum/N
-end
 
 function Hessian(f::Function, R, dx = 10^-11)
 	ndim = size(R)[1]
@@ -97,6 +186,9 @@ end
 function rotate(θ::Float64)
 	return [cos(θ) -sin(θ) 0; sin(θ) cos(θ) 0; 0 0 1]
 end
+
+
+
 
 function MtoA(M)
 	return [M[i,:] for i in 1:size(M)[1]]
