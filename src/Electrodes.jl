@@ -379,7 +379,7 @@ function TΣgen(p::NamedTuple,H::SparseMatrixCSC,βₐ::SparseMatrixCSC, βₜ::
 			#println("")
         	t̃ᵢ = inv(I(n) .- t₋*t̃₋ .- t̃₋*t₋)*t̃₋^2
         	tᵢ = inv(I(n) .- t₋*t̃₋ .- t̃₋*t₋)*t₋^2
-            Tᵢ .+= Π*tᵢ
+                Tᵢ .+= Π*tᵢ
 			error = norm(Tᵢ .- T₋)/norm(Tᵢ)	
 		end
                 #println("Converged, error = $error")

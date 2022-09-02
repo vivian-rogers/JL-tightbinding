@@ -45,6 +45,21 @@ using Constants
       1  0
       0 -1
      ]
+
+
+S1z =             [1 0 0;
+                   0 0 0;
+                   0 0 -1]
+
+S1y =    sqrt(1/2)*[0 -im 0;
+                    im 0 -im;
+                    0 im 0]
+
+S1x =   sqrt(1/2)*[0 1 0;
+                   1 0 1;
+                   0 1 0]
+
+
 S² = [ 
       (1/2)*(1/2 + 1) 	0
       0			(1/2)*(1/2 + 1)
@@ -54,31 +69,55 @@ S² = [
 σ = Vector{Matrix}(undef,3)
 σ[1] = σ₁; σ[2] = σ₂; σ[3] = σ₃
 
+
+
 S₁ = (1/2)*σ₁; S₂= (1/2)*σ₂; S₃ = (1/2)*σ₃; 
 S = cat(S₁,S₂,S₃, dims = 3);
+
+function matdot(A::Vector{Matrix},B::Vector{Float64})
+    sum = zeros(ComplexF64,size(B[1]))
+    for i in eachindex(B)
+        sum .+= B[i]*A[i]
+    end
+    return sum
+end
+
+function matdot(A::Vector,B::Vector{Matrix})
+    sum = zeros(ComplexF64,size(B[1]))
+    for i in eachindex(A)
+        sum .+= A[i]*B[i]
+    end
+    return sum
+end
+
+function distFromDW(p,Rvals::Vector{Vector{Float64}})
+        a = p.A[1,1]
+        DWs = a*[0,0.5,1] # x pos of domain walls
+        nearestDW = [minimum([abs(R[1] - DWpos) for DWpos in DWs]) for R in Rvals]
+
+        return Diagonal(1/nm*nearestDW)
+end
 
 function zpos(Rvals::Vector{Vector{Float64}})
 	zmax = maximum([R[3] for R in Rvals])
 	return Diagonal([(R[3]-zmax)/nm for R in Rvals])
 end
 
-#	s	py	px	pz	dx2-y2	dyz	dxy	dz2	dzx
-L2 =	[0, 	1,	1,	1,	2,	2,	2,	2,	2]
-Lz =	[0, 	1, 	0, 	-1,	2,	1,	0,	-1,	-2]
-
-L² = Diagonal([L2[i]*(L2[i]+1) for i = 1:9])
-L₃ = Diagonal(Lz)
-
-Lplus = [√( L2[i]*(L2[i]+1) - Lz[i]*(Lz[i]+1)) for i = 2:9]
-Lminus = [√( L2[i]*(L2[i]+1) - Lz[i]*(Lz[i]-1)) for i = 1:8]
-
-L₊ = Tridiagonal(zeros(8),zeros(9),Lplus)
-L₋ = Tridiagonal(Lminus,zeros(9),zeros(8))
 
 
-L₁ = Tridiagonal((1/2)*(L₊ .+ L₋))
+# see: Spherical change of basis, complex basis wikipedia
+pmToOrb = sqrt(1/2)*[-1 0 1; im 0 im; 0 sqrt(2) 0]
+#pmToOrb = sqrt(1/2)*[1 0 1; im 0 -im; 0 sqrt(2) 0]
 
-L₂ = Tridiagonal((1/2)*(-im*L₊ .+ im*L₋)) 
+L₁ = pmToOrb*S1x*pmToOrb'
+L₂ = pmToOrb*S1y*pmToOrb'
+L₃ = pmToOrb*S1z*pmToOrb'
+
+L = Vector{Matrix}(undef,3)
+
+L[1] = L₁; L[2] = L₂; L[3] = L₃
+
+Ldotσ = sum([L[i]⊗σ[i] for i = 1:3])
 
 #J₁ = L₁⊗I(2) .+ I(9)⊗S₁
 #J₂ = L₂⊗I(2) .+ I(9)⊗S₂

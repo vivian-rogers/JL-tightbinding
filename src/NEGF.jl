@@ -164,7 +164,7 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				if(approxIn(Eslice, Evals))
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = deepcopy(Tₖ(E))
+						T = Tₖ(E)
 						TofE[iE] += real(T*w)
 						if(E≈Eslice)
                                                         Tmap[kindex[1],kindex[2]] = real(T)
