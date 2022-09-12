@@ -3,7 +3,6 @@ push!(LOAD_PATH, "../src/")
 push!(LOAD_PATH, "./periodicweyl/")
 push!(LOAD_PATH, "./src/")
 
-
 module runs
 using InBi
 using SLutils
@@ -28,10 +27,10 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 200, # half of brillouin zone used in transport
+             nk = 250, # half of brillouin zone used in transport
              
              # info for saving output of runs
-             path = "./runs/testruns/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
+             path = "./runs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
              β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
@@ -85,7 +84,8 @@ runFieldTexture(p)
 
 #Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
 #(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
-(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(4*nm):(0.75*p.SLa₁[1])],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+(x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+SavePlots(fig,p.path,"transmissionsweep")
 
 mkdelim(p.path*"blochdwsweep.txt",[x y])
 #Sweep1DSurf((T -> log10.(T))∘runFieldTexture,startDWstoArg,[DWstart for DWstart = -5*nm:(5*nm):(30*nm)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
