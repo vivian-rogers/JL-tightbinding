@@ -128,7 +128,7 @@ function plot1D(x::Vector,ys::Vector{Vector{Float64}},xlab::String="",ylab::Stri
         for i in eachindex(ys)
             y = ys[i]
             if(i==1)
-                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis,color=i, margin = 5mm)
+                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis,color=i, margin = 15mm)
                 Plots.scatter!(x,y,xlabel=xlab,ylabel=ylab,label=false,yscale=yaxis,color=i)
             else
                 Plots.plot!(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],color=i,yscale=yaxis)
@@ -379,11 +379,14 @@ end
 
 function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="",xscale::Float64=1,surf::Bool=true)
     zmat = zeros(size(yvals)[1],size(xvals)[1])
-    for i in eachindex(xvals)
+    stdout_global = stdout; stderr_global=stderr;
+    Threads.@threads for i in eachindex(xvals)
         x = xvals[i]
+        redirect_stdio(stdout=stdout_global, stderr=stderr_global)
         println("Sweeping y = $yvals at x = $x...")
         args = gridToArgs(x)
-        out = f(args)
+        redirect_stdio(stdout=p.path*"output.log", stderr="errors.log")
+	out = f(args)
         zmat[:,i] = deepcopy(out)
         GC.gc()
         #zmat[:,i] = deepcopy(√(x)*yvals.^2)
@@ -393,7 +396,7 @@ function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
     else
         f = plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],:log10)
     end
-    return (xscale*xvals,reduce(hcat,[zmat[i,:] for i in eachindex(yvals)]))
+    return (xscale*xvals,reduce(hcat,[zmat[i,:] for i in eachindex(yvals)]), f)
 end
 
 

@@ -150,7 +150,7 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	imTmap = zeros(nky,nkz)
 	#TmapList = zeros(nk)
 	TofE = zeros(nE)
-	if(parallelk)
+	if(parallel = "k")
 		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])
@@ -200,8 +200,8 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				TofE .+= TₖofE*w
 				=#
 				iter = ProgressBar(1:size(Evals)[1])
-				#for iE in iter
-				Threads.@threads for iE in iter
+				for iE in iter
+				#Threads.@threads for iE in iter
                                     E = Evals[iE]
                                     T = deepcopy(Tₖ(E))
                                     TofE[iE] += real(T*w)
