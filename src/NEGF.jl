@@ -200,7 +200,8 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				TofE .+= TₖofE*w
 				=#
 				iter = ProgressBar(1:size(Evals)[1])
-				for iE in iter
+				for iE = 1:size(Evals)[1]
+				#for iE in iter
 				#Threads.@threads for iE in iter
                                     E = Evals[iE]
                                     T = deepcopy(Tₖ(E))
