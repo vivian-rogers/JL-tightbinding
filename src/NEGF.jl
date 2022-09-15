@@ -139,7 +139,7 @@ function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Floa
 	return DOS
 end
 
-function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallelk::Bool=true,Eslice=0.25)
+function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallel::String="k",Eslice=0.25)
 	nE = size(Evals)
 	nkz = maximum([kindex[2] for kindex in kindices])
 	nky = maximum([kindex[1] for kindex in kindices])
@@ -150,7 +150,7 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	imTmap = zeros(nky,nkz)
 	#TmapList = zeros(nk)
 	TofE = zeros(nE)
-	if(parallel = "k")
+	if(parallel == "k")
 		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])

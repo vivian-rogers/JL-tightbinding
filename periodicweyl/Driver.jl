@@ -147,7 +147,7 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
         parallelk = ((nkx+1)*(nky+1)*(nkz+1) > 8)
         S = 0.15 # scale for k-map
         #println("parallelk = $parallelk, negf_params.prune = $(negf_params.prune)")
-        TofE, Tmap, imTmap= totalT(genT, kindices, S .* kgrid, kweights, p.E_samples, parallelk, p.E_samples[1])
+        TofE, Tmap, imTmap= totalT(genT, kindices, S .* kgrid, kweights, p.E_samples, p.parallel, p.E_samples[1])
         TofE = S^2*TofE
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
