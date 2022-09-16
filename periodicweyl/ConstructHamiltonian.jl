@@ -91,22 +91,29 @@ function Hgen(p,A::Function)
 				return
 		end
 		# hamiltonian describing the edges
-		Hₑ = spzeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
-		for NN in edge_NNs
-			Δϕ = exp(im*k⋅(p.A*NN.N))
+		#Hₑ = zeros(ComplexF64, 2*p.nsite*p.norb*p.n,2*p.nsite*p.norb*p.n)
+                #build sparse as Hₑ = sparse(rows, cols, elements)
+                rows = Int[]; cols = Int[]; elements = ComplexF64[];
+                for NN in edge_NNs
+			
+                        Δϕ = exp(im*k⋅(p.A*NN.N))
 			#Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
-			Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
+			#=Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
 			Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
 			Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
-			Hₑ[2*NN.b  , 2*NN.a  ] += NN.t[2,2]*Δϕ
-			
-			#=Hₑ[2*NN.b-1, 2*NN.a-1] .+= NN.t[1,1]*NN.t*Δϕ
-			Hₑ[2*NN.b  , 2*NN.a-1] .+= NN.t[2,1]*NN.t*Δϕ
-			Hₑ[2*NN.b-1, 2*NN.a  ] .+= NN.t[1,2]*NN.t*Δϕ
-			Hₑ[2*NN.b  , 2*NN.a  ] .+= NN.t[2,2]*NN.t*Δϕ=#
+			Hₑ[2*NN.b  , 2*NN.a  ] += NN.t[2,2]*Δϕ=#
+                        for i = 1:2
+                            for j = 1:2
+                                push!(rows,2*NN.b+i-2);
+                                push!(cols,2*NN.a+j-2);
+                                push!(elements,copy(NN.t[i,j]*Δϕ))
+                            end
+                        end
 		end
+                Hₑ = sparse(rows,cols,elements)
 		Htot = H₀ .+ Hₑ
-		return Htot
+                return dropzeros(Htot)
+                #return dropzeros(Htot)
 		#return dropzeros(Hᵦ)
 		#return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
 		#return Hermitian(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ)

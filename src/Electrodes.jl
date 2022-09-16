@@ -226,7 +226,7 @@ function changeBasis(p::NamedTuple,ElectrodeInfo::Electrode)
 	nE = ElectrodeInfo.n
 	nD = p.n
         #println("nE = $nE; nD = $nD")
-	Psite = zeros(nD,nE)
+	Psite = spzeros(nD,nE)
 	nx = Int(abs(ElectrodeInfo.xrange[2] - ElectrodeInfo.xrange[1]))
 	ny = Int(abs(ElectrodeInfo.yrange[2] - ElectrodeInfo.yrange[1]))
 	nz = Int(abs(ElectrodeInfo.zrange[2] - ElectrodeInfo.zrange[1]))
@@ -246,7 +246,7 @@ function changeBasis(p::NamedTuple,ElectrodeInfo::Electrode)
 			Psite[deviceSiteIndex,contactSiteIndex] = 1
 		end
 	end
-        return sparse(Psite⊗I(p.nsite*p.norb*2))
+        return dropzeros(Psite⊗I(p.nsite*p.norb*2))
         #return sparse(Psite⊗ones(p.nsite,p.nsite)⊗I(p.norb*2))
 end
 			
@@ -256,16 +256,24 @@ function makeElectrodeH(p::NamedTuple,ElectrodeInfo::Electrode,edge_NNs::Vector{
 	kfilter = [0;1;1] # to ensure that self-energy in x is Γ centered
 	function H(k::Vector{Float64})
 		# hamiltonian describing the edges
-		Hₑ = spzeros(ComplexF64, 2*p.nsite*p.norb*ElectrodeInfo.n, 2*p.nsite*p.norb*ElectrodeInfo.n)
+		#Hₑ = spzeros(ComplexF64, 2*p.nsite*p.norb*ElectrodeInfo.n, 2*p.nsite*p.norb*ElectrodeInfo.n)
+                rows = Int[]; cols = Int[]; elements = ComplexF64[];
 		for NN in edge_NNs
 			Δϕ = exp(im*(kfilter.*k)⋅(p.A*NN.N))
 			#Δϕ = exp(im*k⋅(p.SLa₁*NN.N[1] + p.SLa₂*NN.N[2] + p.SLa₃*NN.N[3]))
-			Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
-			Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
-			Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
-			Hₑ[2*NN.b  , 2*NN.a  ] += NN.t[2,2]*Δϕ
+                        for i = 1:2
+                            for j = 1:2
+                                push!(rows,2*NN.b+i-2);
+                                push!(cols,2*NN.a+j-2);
+                                push!(elements,copy(NN.t[i,j]*Δϕ))
+                            end
+                        end
+			#Hₑ[2*NN.b-1, 2*NN.a-1] += NN.t[1,1]*Δϕ
+			#Hₑ[2*NN.b  , 2*NN.a-1] += NN.t[2,1]*Δϕ
+			#Hₑ[2*NN.b-1, 2*NN.a  ] += NN.t[1,2]*Δϕ
+			#Hₑ[2*NN.b  , 2*NN.a  ] += NN.t[2,2]*Δϕ
 		end
-		return Hₑ
+                return sparse(rows,cols,elements)
 	end
 	return H
 end
@@ -415,7 +423,7 @@ function Σgen(p::NamedTuple,H::SparseMatrixCSC,βₐ::SparseMatrixCSC, βₜ::S
         #β = βₜ .+ βₐ
         while error > cutoff
             #println("Gₑʳ convergence error loop: $error")
-            Σ₀ = deepcopy(Σ)
+            Σ₀ = copy(Σ)
             Σ = βₜ*grInv((E+im*p.η)*I(n) .- H .- Σ₀)*βₐ # guess for the green's functions in the electrodes
             #Σ = βₜ*Gₑ0*βₐ
             #Gₑ = grInv((E+im*p.η)*I(n) .- H .- Σ_contact) # guess for the green's functions in the electrodes

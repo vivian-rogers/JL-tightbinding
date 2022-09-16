@@ -36,7 +36,7 @@ runparams = (
              β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
              
              # run parameters`
-             parallel="k", n_BLAS=4, transport=true, verbose = false, plotfield = false, bands=false, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = false, bands=false, θ=30.0, sweep="none",
              
              # materials used in the device
              electrodeMagnetization=false,electrodeMaterial="metal",
