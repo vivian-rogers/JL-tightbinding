@@ -37,13 +37,13 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 			Σk = Σks[iΣ](k)
 			Σs[iΣ] = Σk
 		end
-		totalΣ = zeros(ComplexF64,p.n*p.nsite*p.norb*2,p.n*p.nsite*p.norb*2)
+		totalΣ = spzeros(ComplexF64,p.n*p.nsite*p.norb*2,p.n*p.nsite*p.norb*2)
 		i = 1
                 for Σ in Σs
-		    sig = Σ(E)
+		    #sig = Σ(E)
                     #println("Σ$i = ")
                     #display(sig)	
-                    totalΣ .+= sig
+                    totalΣ .+= Σ(E)
                     i += 1
 		end
 		return totalΣ
@@ -97,7 +97,7 @@ function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Floa
 	#TmapList = zeros(nk)
 	DOS = zeros(nE)
 	if(parallelk)
-		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])
                 #for ik in iter
@@ -114,7 +114,7 @@ function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Floa
                         end
 		end
 	else
-		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		knum = shuffle([i for  i = 1:nk])
 		for ik = 1:nk
 				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
@@ -151,11 +151,13 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	#TmapList = zeros(nk)
 	TofE = zeros(nE)
 	if(parallel == "k")
-		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])
 		approxIn(E,Evals) = any(map(Ei->Ei≈E,Evals))
-			Threads.@threads for ik in iter
+		for ik = 1:nk
+		#@distributed for ik in iter
+		#Threads.@threads for ik in iter
 				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
 				k = kgrid[i]
 				kindex = kindices[i]
@@ -168,26 +170,25 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 						TofE[iE] += real(T*w)
 						if(E≈Eslice)
                                                         Tmap[kindex[1],kindex[2]] = real(T)
-                                                        imTmap[kindex[1],kindex[2]] = imag(T)
 						end
 					end
 				elseif(typeof(Eslice) == Float64) 
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = deepcopy(Tₖ(E))
+						T = Tₖ(E)
 						TofE[iE] += real(T*w)
 					end
 					Tmap[kindex[1],kindex[2]] = real(Tₖ(Eslice))
 				else
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = deepcopy(Tₖ(E))
+						T = Tₖ(E)
 						TofE[iE] += real(T*w)
 					end
 				end
 		end
 	else
-		BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		knum = shuffle([i for  i = 1:nk])
 		for ik = 1:nk
 				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid
@@ -317,7 +318,7 @@ end
 # Generate H₀ and make a list of edge bonds for generating H(k)
 function nnHoppingMat(NNs,p)
 	N = p.n*p.nsite*p.norb
-	H = zeros(ComplexF64,2*N,2*N)
+	H = spzeros(ComplexF64,2*N,2*N)
 	edgeNNs = Any[]
 	for NN in NNs
 		if(NN.edge == true)
