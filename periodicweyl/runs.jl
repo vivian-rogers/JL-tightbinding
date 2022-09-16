@@ -27,23 +27,23 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 250, # half of brillouin zone used in transport
+             nk = 25, # half of brillouin zone used in transport
              
              # info for saving output of runs
-             path = "./runs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
+             path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
              β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
              
-             # run parameters
-             transport=true, verbose = false, plotfield = true, bands=false, θ=30.0, sweep="none",
+             # run parameters`
+             parallel="k", n_BLAS=4, transport=true, verbose = false, plotfield = false, bands=false, θ=30.0, sweep="none",
              
              # materials used in the device
              electrodeMagnetization=false,electrodeMaterial="metal",
              deviceMagnetization=true,deviceMaterial="weyl",
              
              # if defining stripe domain superlattice       # penetration depth 
-             startDWs = 25*nm, DWwidth = 6*nm, DWspacing = 12*nm, λ = 2*nm,
+             startDWs = 36*nm, DWwidth = 6*nm, DWspacing = 12*nm, λ = 2*nm,
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
              # if using proximity-magnetized profile
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
@@ -55,6 +55,7 @@ runparams = (
 parms = merge(params,runparams)
 p = genSL(parms, nx, ny, nz, SL1, SL3, SL3, parms.runtype, parms.fieldtype) # generate SL params
 
+BLAS.set_num_threads(p.n_BLAS)
 
 function runFieldTexture(p::NamedTuple)
     if(p.fieldtype=="A")
@@ -78,16 +79,23 @@ function θtoArg(θ::Float64)
     return merge(p, (sweep = "T(DW angle,E)", θ = θ))
 end
 
+
 mkpath(p.path)
 
-runFieldTexture(p)
+# Get the bands for the supercell
+bandsp = nxtoArg(Int(2*p.DWspacing/InBi.a)); bandsp = merge(bandsp, (bands=true, parallel="k"));
+@time runFieldTexture(bandsp)
 
-#Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
-#(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
-(x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+
+(x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false, p.parallel)
 SavePlots(fig,p.path,"transmissionsweep")
 
 mkdelim(p.path*"blochdwsweep.txt",[x y])
+
+
+#Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
+#(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
+
 #Sweep1DSurf((T -> log10.(T))∘runFieldTexture,startDWstoArg,[DWstart for DWstart = -5*nm:(5*nm):(30*nm)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
 #Sweep1DSurf((T -> log10.(T))∘runFieldTexture,θtoArg,[θ for θ = 0.0:10.0:180.0],p.E_samples,"θ DW angle (degrees)", "Energy (eV)","log₁₀(T) (e²/h)",false)
 

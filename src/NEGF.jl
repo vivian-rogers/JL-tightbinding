@@ -155,7 +155,7 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])
 		approxIn(E,Evals) = any(map(Ei->Ei≈E,Evals))
-		for ik = 1:nk
+		Threads.@threads for ik = 1:nk
 		#@distributed for ik in iter
 		#Threads.@threads for ik in iter
 				i = knum[ik] # this is to shuffle the kpt allocations so no processor gets a dense section of grid

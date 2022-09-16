@@ -128,7 +128,7 @@ function plot1D(x::Vector,ys::Vector{Vector{Float64}},xlab::String="",ylab::Stri
         for i in eachindex(ys)
             y = ys[i]
             if(i==1)
-                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis,color=i, margin = 15mm)
+                Plots.plot(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],yscale=yaxis,color=i, margin = 25mm)
                 Plots.scatter!(x,y,xlabel=xlab,ylabel=ylab,label=false,yscale=yaxis,color=i)
             else
                 Plots.plot!(x,y,xlabel=xlab,ylabel=ylab,label=legend[i],color=i,yscale=yaxis)
@@ -314,7 +314,7 @@ function pyplotHeatmap(x,y,z,xlab="",ylab="",name="",cmap= :nipy_spectral,save=f
         PyPlot.colorbar(surf, label=name)
         if(save)
             SaveFigure(fig,path,name)
-            #fig.savefig(path*name*".png")
+            #fig.savefig(path*name*".svg")
             #close(fig)
         end
         #heatmap!
@@ -377,19 +377,35 @@ function Sweep2DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
 end
 
 
-function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="",xscale::Float64=1,surf::Bool=true)
+function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Vector, xlab="",ylab="",zlab="",xscale::Float64=1,surf::Bool=true,parallel::String="k")
     zmat = zeros(size(yvals)[1],size(xvals)[1])
     stdout_global = stdout; stderr_global=stderr;
-    Threads.@threads for i in eachindex(xvals)
-        x = xvals[i]
-        redirect_stdio(stdout=stdout_global, stderr=stderr_global)
-        println("Sweeping y = $yvals at x = $x...")
-        args = gridToArgs(x)
-        redirect_stdio(stdout=p.path*"output.log", stderr="errors.log")
-	out = f(args)
-        zmat[:,i] = deepcopy(out)
-        GC.gc()
-        #zmat[:,i] = deepcopy(√(x)*yvals.^2)
+    if(parallel == "sweep")
+	iter = ProgressBar(eachindex(xvals))
+	#@distributed for i in iter
+	Threads.@threads for i in eachindex(xvals)
+		x = xvals[i]
+		#redirect_stdio(stdout=stdout_global, stderr=stderr_global)
+		println("Sweeping y = $yvals at x = $x...")
+		args = gridToArgs(x)
+		#redirect_stdio(stdout=args.path*"output.log", stderr=args.path*"errors.log")
+		@time zmat[:,i] = f(args)
+		#zmat[:,i] = deepcopy(out)
+		GC.gc()
+		#zmat[:,i] = deepcopy(√(x)*yvals.^2)
+	    end
+    else
+	    for i in eachindex(xvals)
+		x = xvals[i]
+		#redirect_stdio(stdout=stdout_global, stderr=stderr_global)
+		println("Sweeping y = $yvals at x = $x...")
+		args = gridToArgs(x)
+		#redirect_stdio(stdout=args.path*"output.log", stderr=args.path*"errors.log")
+		@time out = f(args)
+		zmat[:,i] = deepcopy(out)
+		GC.gc()
+		#zmat[:,i] = deepcopy(√(x)*yvals.^2)
+	    end
     end
     if(surf)
         f = plotHeatmap(xvals,yvals,zmat,xlab,ylab)
@@ -400,13 +416,13 @@ function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
 end
 
 
-function SavePlots(fig,path,name="",type=".png")
+function SavePlots(fig,path,name="",type=".svg")
         Plots.savefig(fig, path*"/"*name*type)
         Plots.close(fig)
 end
 
 
-function SaveFigure(fig,path,name="",type=".png")
+function SaveFigure(fig,path,name="",type=".svg")
 	fig.savefig(path*"/"*name*type)
 	PyPlot.close(fig)
         GC.gc()
