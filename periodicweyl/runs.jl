@@ -27,7 +27,7 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 25, # half of brillouin zone used in transport
+             nk = 250, # half of brillouin zone used in transport
              
              # info for saving output of runs
              path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
@@ -36,7 +36,7 @@ runparams = (
              β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
              
              # run parameters`
-             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = false, bands=false, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=false, θ=30.0, sweep="none",
              
              # materials used in the device
              electrodeMagnetization=false,electrodeMaterial="metal",
@@ -83,14 +83,14 @@ end
 mkpath(p.path)
 
 # Get the bands for the supercell
-bandsp = nxtoArg(Int(2*p.DWspacing/InBi.a)); bandsp = merge(bandsp, (bands=true, parallel="k"));
+bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=3))); bandsp = merge(bandsp, (bands=true, parallel="k"));
 @time runFieldTexture(bandsp)
 
 
 (x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false, p.parallel)
-SavePlots(fig,p.path,"transmissionsweep")
+#SavePlots(fig,p.path,"transmissionsweep")
 
-mkdelim(p.path*"blochdwsweep.txt",[x y])
+mkdelim(p.path*"dwsweep.txt",[x y])
 
 
 #Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
