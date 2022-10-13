@@ -42,7 +42,7 @@ function Agen(p,runtype::String="",M₀::Float64=0) # modify vector potential as
 			return Float64.(Aval)
 		end
 		return npA
-	elseif(runtype=="afmthinfilm")
+	lseif(runtype=="afmthinfilm")
 		# egg-carton type potential
 		function afA(R::Vector{Float64})
 			λ = 2*nm; B₀ = 200 # tesla
@@ -122,7 +122,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
                 decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
                 while error > 10^-5
                     θ₋ = deepcopy(θ)
-                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
+                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i)/p.DWwidth))
                     i += 1
                     error = abs(θ-θ₋)
                 end
@@ -140,7 +140,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
                 decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
                 while error > 10^-5
                     θ₋ = deepcopy(θ)
-                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i - p.DWwidth)/p.DWwidth))
+                    θ += 2*atan(exp(π*(p.startDWs - R[1] - p.DWspacing*i)/p.DWwidth))
                     i += 1
                     error = abs(θ-θ₋)
                 end

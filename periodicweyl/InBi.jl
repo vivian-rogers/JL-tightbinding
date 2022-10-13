@@ -121,7 +121,7 @@ function genSL(p,nx::Int,ny::Int,nz::Int,SL1::Vector{Int},SL2::Vector{Int},SL3::
         SLparams = (
 		SLa₁ = newA[:,1], SLa₂ = newA[:,2], SLa₃ = newA[:,3],
 		#A = hcat(SLa₁,SLa₂,SLa₃),
-		A = newA,
+                A = newA, B = 2*π*transpose(inv(newA)),
 		nx = nx, ny = ny, nz = nz, n=nx*ny*nz,
 		kdict = kdictGen(newA),
 		runtype=runtype,

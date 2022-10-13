@@ -22,6 +22,7 @@ using VectorPotential
 using NEGF
 using Bands
 using PlotStuff
+using MakiePlots
 using SaveStuff
 using JLD2
 
@@ -130,14 +131,36 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x",p.electrodeMaterial,A);
 		Electrode([p.nx,p.nx+1],[0,p.ny],[0,p.nz],p.ny*p.nz,"+x",p.electrodeMaterial,A)
 	]
+        plot_params = (prune = setdiff(p.prune,["x"]), sweep="plot"); 
+        plot_params = merge(p,plot_params);
+        display(plot_params)
         negf_params = (prune = union(["x"],(p.prune)),verbose=false, nelectrodes=size(Electrodes)[1])
 	negf_params = merge(p,negf_params)
 	H = runSCF(negf_params,A) # generates H(k)
 	println("Generating self-energy matrices for electrodes...")
-	Σks = genΣₖs(p,Electrodes) #i.e. the Σᵢ(E) at a given k value. Call with Σₖ = Σks(k); then Σ = Σₖ(E)
+	Σks = genΣₖs(plot_params,Electrodes) #i.e. the Σᵢ(E) at a given k value. Call with Σₖ = Σks(k); then Σ = Σₖ(E)
 	println("Defining Gʳ, Current operator, etc...")
 	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
+        if(p.mixedDOS==true)
+            mdE = p.E_samples[1]*eV; η = 10^-(2.0)
+            function plottingGʳ(k::Vector{Float64})
+                function Gʳ(E::Float64)
+                    Σₗ = Σks[1]; Σᵣ = Σks[2]
+                    return grInv((E+im*η)*I(p.nx*p.ny*p.nz*p.norb*2) .- H(k) .- Σₗ(k)(E) .- Σᵣ(k)(E)) 
+                end
+                return Gʳ
+            end
+            γ⁵ = I(p.nx*p.ny*p.nz)⊗τ₁⊗σ₀;
+            # left and right-handed states
+            Operators = [(1/2)*(I(p.nx*p.ny*p.nz*p.norb*2).+d*γ⁵)  for d = [-1,+1]]
+            DOS = sitePDOS(plot_params,plottingGʳ,Operators, mdE)
+			#G = genGʳ([0.1;0.1;0.1])(0.02*eV)
+			#Test = DOS([0.1;0.1;0.1]);
+            #testDOS(k) = ones(p.nx)*(k⋅k)/nm^2;
+            nkDOS = 250
+            mixedDOS(plot_params,DOS,nkDOS,nkDOS)
+        end
         nkx = p.nk*!("x" ∈ negf_params.prune); nky = p.nk*!("y" ∈ negf_params.prune); nkz = p.nk*!("z" ∈ negf_params.prune);
 	
         kgrid, kweights, kindices, kxs, kys, kzs = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
@@ -215,10 +238,10 @@ function main(p,A=A,save=false,path="")
             H = runSCF(p,A,save,path)
             testH = H([0;0;0])
             println("size of H = $(size(testH))")
-            Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
-            #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
+            #Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
+            Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
             #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
-            runBands(p,2^5,H,Q,true,p.arpack)
+            runBands(p,2^6,H,Q,true,p.arpack)
         end
         #println("testH₀ = \n $testH")
 	# some arbitrary operators for bands routine

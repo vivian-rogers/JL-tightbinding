@@ -11,7 +11,7 @@ using Distributed
 using ProgressBars
 using Random
 
-export NEGF_prep, totalT, DOS
+export NEGF_prep, totalT, DOS, siteDOS
 
 
 function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
@@ -138,6 +138,16 @@ function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Floa
 	end
 	return DOS
 end
+
+function siteDOS(p::NamedTuple, genGᴿ::Function, E::Float64=0.1*eV)
+    function DOS(k::Float64)
+        totToSite = sparse(I(p.nx*p.ny*p.nz)⊗(ones(p.norb*2)'))
+        SiteGᴿ = totToSite*genGᴿ(k)(E)
+        DOS = (-1/π)*imag.(Diagonal(SiteGᴿ))
+        return DOS
+    end
+end
+
 
 function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallel::String="k",Eslice=0.25)
 	nE = size(Evals)

@@ -15,7 +15,7 @@ using Operators
 using Constants
 #using GLMakie
 
-export energySurface, complexEnergySurface, kslice, getDOS, getLDOS, eigSurface, complexEigSurface
+export energySurface, mixedDOS, complexEnergySurface, kslice, getDOS, getLDOS, eigSurface, complexEigSurface
 
 
 function genBZmesh(B::Matrix,nx::Int=0, ny::Int=100, nz::Int=100) # only works for cubic lattice
@@ -236,6 +236,76 @@ function complexEigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, r
         display(f)
        return f 
 end
+
+
+function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
+        #kx, ky, kz = genBZmesh(p.B,nx,ny,nz)
+        #kDOS = kDOSgen(p,H,E)
+        #DOS_Γ = DOS([0;0;0])
+        
+        println("Evaluating DOS over brillouin zone, may take a while")
+        # for plotlyjs
+        S = 0.15
+        #X1 = S*p.B*[1/2;0;0];
+        X2 = S*p.B*[0;1/2;0];
+        X3 = S*p.B*[0;0;1/2];
+        #k1 =  LinRange(-X1[1],X1[1],2*nx+1)
+        k2 =  LinRange(-X2[2],X2[2],2*ny+1)
+        k3 =  LinRange(-X3[3],X3[3],2*nz+1)
+        ixs =  LinRange(1,p.nx,p.nx)
+        ky, kz, xs = mgrid(k2,k3,ixs)
+        # for makie
+        #kDOSmesh = [kDOS(kx*e1+ky*e2+kz*e3) for kx = kx, ky = ky, kz = kz]
+        BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+        #f(kx::Float64,ky::Float64,kz::Float64) = tanh(kDOS(e1*kx + e2*ky + e3*kz))
+        kvals = CartProd([collect(k1),collect(k2)])
+        #display(kvals)
+        vals = Float64[]
+        #vals = zeros(size(kvals)[1])
+        iter = ProgressBar(eachindex(kvals))
+        Threads.@threads for ik in iter
+            SBZk = kvals[ik][:]
+            k = vcat(0,SBZk)
+            D = DOS(k)
+            #display(k)
+            vals = append!(DOS)
+        end
+        vals = log.(vals)
+        vals = (1/maximum(vals))*(vals .- minimum(vals)) #normalize to maximum of 3 for tanh
+        vals = tanh.(vals)
+        f1 = plot(histogram(x=vals))
+        display(f1)
+        kDOSmesh = reshape(vals,(p.nx,ny*2+1,nz*2+1))
+        # may not be optimal but it works
+        #kDOSmesh = map(f, kx,ky,kz)
+        #kDOSmesh = pmap(k1,k2,k3 -> kDOS(k1*e1+k2*e2+k3*e3), kx
+        println("Done! Plotting energy surface")
+        ϵ = 10^-7; 
+        #max = ϵ; min = -ϵ;
+        max = percentile(vals,99.8); min = percentile(vals,98.5)
+        f = plot(isosurface(
+            x=kx[:],
+            y=ky[:],
+            z=kz[:],
+            value=kDOSmesh[:],
+            isomin=min,
+            isomax=max,
+            #=colorscale=[
+                    [0, "rgb(240, 237, 74)"],
+                    [1.0, "rgb(240, 237, 74)"]
+            ],=#
+            opacity=0.3, # needs to be small to see through all surfaces
+            #opacityscale="max",
+            surface_count=3, # needs to be a large number for good volume rendering
+        ))
+        #f = volume(kDOSmesh,algorithm = :iso, isorange = 0.02, isovalue=0.5)
+        #show(f)
+        #display(kx)
+        display(f)
+        #gui()
+        return f
+end
+
 function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::String="x", nk1::Int=200, nk2::Int=200, k3::Float64=0, cones::Bool=true)
         eigsheets = zeros(neigs,2*nk1+1,2*nk2+1)
         projectionsheets = zeros(neigs,2*nk1+1,2*nk2+1)

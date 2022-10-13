@@ -33,6 +33,9 @@ function mkfolder(path)
 	end
 end
 
+function int(i::Float64)
+    return Int(round(i,sigdigits=1))
+end
 
 #CartProd(x,y) = [repeat(x, inner=[size(y,1)]) repeat(y, outer=[size(x,1)])]
 #CartProd(x,y,z) = [[x,y,z] for i in x, for j in y, for ]
@@ -88,7 +91,7 @@ end
 exactInv(A) = inv(Array(A))
 
 # using Woodbury matrix recursion identity
-function recInv(M::SparseMatrixCSC, sizecutoff::Int=128)
+function recInv(M::Union{SparseMatrixCSC, SubArray}, sizecutoff::Int=64)
     nx = size(M)[2]
     ny = size(M)[1]
     if(nx <= sizecutoff || ny <= sizecutoff)
@@ -98,23 +101,34 @@ function recInv(M::SparseMatrixCSC, sizecutoff::Int=128)
         hxl = hxu -1; hyl = hyu -1
         #A = deepcopy(M[1:hyl,1:hxl]); U = deepcopy(M[1:hyl,hxu:nx]);
         #V = deepcopy(M[hyu:ny,1:hxl]); C = deepcopy(M[hyu:ny,hxu:nx]);
-        A = M[1:hyl,1:hxl]; U = M[1:hyl,hxu:nx];
+        A = M[1:hyl,1:hxl];  U = M[1:hyl,hxu:nx];
         V = M[hyu:ny,1:hxl]; C = M[hyu:ny,hxu:nx];
+        Cinv = recInv(C,sizecutoff)
+        Γ = Cinv*V; Δ = U*Cinv
+        #display(typeof(A))
+        #display(typeof(sparse(deepcopy(Δ*V))))
+        #display(typeof(sparse(A)-Δ*sparse(V)))
+        #display(typeof(A.-deepcopy(Δ*V)))
+        Σ = recInv(A .- Δ*V,sizecutoff)
+        Minv = [Σ          -Σ*Δ;
+                -Γ*Σ   Cinv .+ Γ*Σ*Δ]
+        
+        #=
         Cinv = sE(recInv(C,sizecutoff))
-        #Minv = spzeros(ComplexF64,ny,nx)
         Γ = Cinv*sE(V); Δ = sE(U)*Cinv
         Σ = sE(recInv(A .- Δ*V,sizecutoff))
         Minv = [Σ          -Σ*Δ;
                 -Γ*Σ  (Cinv .+ Γ*Σ*Δ)]
+        =#
         #Minv[1:hyl,1:hxl] .= Σ
         #Minv[1:hyl,hxu:nx] .= -Σ*U*Cinv
         #Minv[hyu:ny,1:hxl] .= -Cinv*V*Σ
         #Minv[hyu:ny,hxu:nx] .= Cinv .+ Cinv*V*Σ*U*Cinv
-        if(typeof(Minv) == SparseMatrixCSC)
-            return dropzeros(Minv)
-        else
-            return sparse(Minv)
-        end
+        #if(typeof(Minv) == SparseMatrixCSC)
+        #    return dropzeros(Minv)
+        #else
+        return Minv
+        #end
     end
 end
 
@@ -122,12 +136,12 @@ end
 
 grInv = recInv
 
-function sparseEnough(M::SparseMatrixCSC)
+function sparseEnough(M::Union{SparseMatrixCSC,SubArray})
        return M
        n = size(M)[1]*size(M)[2]
        nz = nnz(M)
-       sparsitycutoff = 0.1
-       if(nnz(M)/n^2 < sparsitycutoff)
+       sparsitycutoff = nz
+       if(nz/n^2 < sparsitycutoff)
            return dropzeros(M)
        else
            return Array(M)

@@ -21,35 +21,39 @@ nx = 100; ny = 1; nz = 1;
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
 
+saving = true;
 runparams = (
+
              # fermi energy, σ of background disorder
              μ = 0.0*eV, μ_disorder = 0.025*eV, 
              
              # energy range for transport 
-             E_samples = [0.1],
-             nk = 25, # half of brillouin zone used in transport
+             E_samples = [0.05],
+             nk = 100, # half of brillouin zone used in transport
              
              # info for saving output of runs
-             path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
+             path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=false, save=false,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
-             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, 
+             β = 0.25*eV, runtype = "blochdw", fieldtype = "β", η = 1*10^-2, ηD = 10^-4, 
              
              # run parameters`
-             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = false, bands=false, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=false, mixedDOS=true, θ=0.0, sweep="none",
              
              # materials used in the device
-             electrodeMagnetization=false,electrodeMaterial="metal",
+             electrodeMagnetization=true,electrodeMaterial="weyl",
              deviceMagnetization=true,deviceMaterial="weyl",
              
              # if defining stripe domain superlattice       # penetration depth 
-             startDWs = 36*nm, DWwidth = 6*nm, DWspacing = 12*nm, λ = 2*nm,
+             #startDWs = -6*nm,
+             startDWs = 36*nm, 
+             DWwidth = 9*nm, DWspacing = 15*nm, λ = 2*nm,
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
              # if using proximity-magnetized profile
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
              #deviceMagnetization=false,deviceMaterial="ins",
              # will prune periodic boundaries in "x","y","z"
-             prune=[]
+             prune=["x"]
             )
 
 parms = merge(params,runparams)
@@ -82,16 +86,21 @@ end
 
 mkpath(p.path)
 
-# Get the bands for the supercell
-bandsp = nxtoArg(Int(2*p.DWspacing/InBi.a)); bandsp = merge(bandsp, (bands=true, parallel="k"));
+# for recreating araki hamiltonian
+bandsp = nxtoArg(32); bandsp = merge(bandsp, (startDWs=10*nm, bands=true, parallel="k", DWspacing=30*nm));
 @time runFieldTexture(bandsp)
 
+# Get the bands for the supercell
+#bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=2))); bandsp = merge(bandsp, (bands=true, parallel="k"));
+#@time runFieldTexture(bandsp)
 
+
+#=
 (x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false, p.parallel)
 SavePlots(fig,p.path,"transmissionsweep")
 
 mkdelim(p.path*"blochdwsweep.txt",[x y])
-
+=#
 
 #Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
 #(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
