@@ -16,7 +16,7 @@ using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 100; ny = 1; nz = 1; 
+nx = 3; ny = 1; nz = 1; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -28,18 +28,20 @@ runparams = (
              μ = 0.0*eV, μ_disorder = 0.025*eV, 
              
              # energy range for transport 
-             E_samples = [0.05],
+             E_samples = [0.07],
              nk = 100, # half of brillouin zone used in transport
              
              # info for saving output of runs
              path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=false, save=false,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
-             β = 0.25*eV, runtype = "blochdw", fieldtype = "β", η = 1*10^-2, ηD = 10^-4, 
+             β = 0.25*eV, runtype = "blochlattice", fieldtype = "β", η = 1*10^-3, ηD = 10^-4, 
              
              # run parameters`
-             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=false, mixedDOS=true, θ=0.0, sweep="none",
-             
+             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=false, mixedDOS=true, θ=30.0, sweep="none",
+            
+             # things to return 
+             returnvals = ["transmission"],
              # materials used in the device
              electrodeMagnetization=true,electrodeMaterial="weyl",
              deviceMagnetization=true,deviceMaterial="weyl",
@@ -53,7 +55,7 @@ runparams = (
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
              #deviceMagnetization=false,deviceMaterial="ins",
              # will prune periodic boundaries in "x","y","z"
-             prune=["x"]
+             prune=[]
             )
 
 parms = merge(params,runparams)
@@ -86,9 +88,14 @@ end
 
 mkpath(p.path)
 
+# for recreating WMTJ
+WMTJparams = nxtoArg(3); WMTJparams = merge(WMTJparams, (electrodeMagnetization=true,electrodeMaterial="mtjweyl", deviceMagnetization=false,deviceMaterial="ins"));
+@time runFieldTexture(WMTJparams)
+
 # for recreating araki hamiltonian
-bandsp = nxtoArg(32); bandsp = merge(bandsp, (startDWs=10*nm, bands=true, parallel="k", DWspacing=30*nm));
-@time runFieldTexture(bandsp)
+#bandsp = nxtoArg(20); bandsp = merge(bandsp, (startDWs=10*nm, bands=true, parallel="k", DWspacing=30*nm));
+#@time runFieldTexture(bandsp)
+#bandsp = nxtoArg(50); bandsp = merge(bandsp, (runtype="blochlattice", parallel="k"));
 
 # Get the bands for the supercell
 #bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=2))); bandsp = merge(bandsp, (bands=true, parallel="k"));
