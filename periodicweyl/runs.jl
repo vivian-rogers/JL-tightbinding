@@ -28,8 +28,8 @@ runparams = (
              μ = 0.0*eV, μ_disorder = 0.025*eV, 
              
              # energy range for transport 
-             E_samples = [0.07],
-             nk = 100, # half of brillouin zone used in transport
+             E_samples = [0.1],
+             nk = 250, # half of brillouin zone used in transport
              
              # info for saving output of runs
              path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=false, save=false,
@@ -98,16 +98,16 @@ WMTJparams = nxtoArg(3); WMTJparams = merge(WMTJparams, (electrodeMagnetization=
 #bandsp = nxtoArg(50); bandsp = merge(bandsp, (runtype="blochlattice", parallel="k"));
 
 # Get the bands for the supercell
-#bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=2))); bandsp = merge(bandsp, (bands=true, parallel="k"));
-#@time runFieldTexture(bandsp)
+bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=3))); bandsp = merge(bandsp, (bands=true, parallel="k"));
+@time runFieldTexture(bandsp)
 
 
 #=
 (x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false, p.parallel)
-SavePlots(fig,p.path,"transmissionsweep")
-
-mkdelim(p.path*"blochdwsweep.txt",[x y])
+#SavePlots(fig,p.path,"transmissionsweep")
 =#
+
+mkdelim(p.path*"dwsweep.txt",[x y])
 
 #Sweep1DSurf(runFieldTexture,θtoArg,[θ for θ = 0:10.0:180],p.E_samples,"θ DW angle (degrees)", "Energy (eV)", "T (e²/h)")
 #(x,y) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = 2*p.DWwidth:(4*nm):4*p.DWwidth],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false)
