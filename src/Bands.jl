@@ -49,7 +49,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	nk = size(kpts)[1]
 	
 	#	show(kpts)
-	testH = Hofk([0;0;1])
+	testH = Hofk([0.0;0.0;1.0])
 	if(any(isnan,testH)==true)
 		throw(DomainError(testH, "Something broken in hamiltonian definition! Returning NaN"))
 		return
@@ -60,7 +60,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	if(arpack)
 		maxiter = 8000
 		#nE = 128
-		nE = 8
+		nE = 20
 		#nE = 6*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
