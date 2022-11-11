@@ -23,7 +23,7 @@ using MakiePlots
 export Hgen, makeH
 
 # Takes in the parameter list and the vector potential
-function Hgen(p,A::Function)
+function Hgen(p,A::Function,returnvals)
 
 	# modify the hopping and generate the static part of the hamiltonian
 	#NN2s = nn2(λ,Rvals,U₂)
@@ -59,7 +59,7 @@ function Hgen(p,A::Function)
             end
 	end
         if(p.deviceMagnetization==true)
-            (Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals)
+            (Bfield, Bsurf, avgB) = fieldUtils(p,A,Rsurf,Rvals,returnvals)
             Hᵦ = zeeman(map(B -> Float64.(B), Bfield),p)
         else
             Hᵦ = 0I(p.n*p.nsite*p.norb*2)
@@ -126,7 +126,7 @@ end
 # all these functions are obsolete, but could be useful... especially chargeImpurities
 # we are not adding any onsite +U terms quite yet, so the SCF loops may be unnecessary. 
 
-function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vector{Vector{Float64}})
+function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vector{Vector{Float64}}, returnvals)
 	println("===== Calculating applied zeeman field properties =====")
 	checkPeriodicField(A,p) # tells you if gauge field periodic with SL
 	if(p.fieldtype == "A")
@@ -158,7 +158,10 @@ function fieldUtils(p, A::Function, Rsurf::Vector{Vector{Float64}}, Rvals::Vecto
                 #plot3Dvectors(Rvals,Bfield,[coeff*B[2] for B in Bfield],"x position (nm)", "y position (nm)", "z position (nm)", "β₂ (eV)")
                 if(p.plotfield)
                     colorfunc(B) = B⋅[0;1;0]
-                    render2TDevice(p,Rvals,coeff*Bfield,colorfunc,10.0) 
+                    devicefig = render2TDevice(p,Rvals,coeff*Bfield,colorfunc,10.0) 
+                    if("plotfield" ∈ p.returnvals)
+                        push!(returnvals,devicefig)
+                    end
                     #plotScatter(Rsurf,[coeff*B[2] for B in Bsurf], "x position (nm)", "y position (nm)", "β₂ (eV)", "coolwarm",)
                 end
                 #return (Float64.(Bfield), Float64.(Bsurf), avgB)

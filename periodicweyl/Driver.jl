@@ -125,7 +125,7 @@ end
 =#
 
 # function to calculate transport from device parameters
-function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
+function NEGF_2contacts_1layer(p::NamedTuple,A::Function,returnvals)
         println("============= NEGF transport ============")
         Electrodes = [
 		Electrode([-1,0],[0,p.ny],[0,p.nz],p.ny*p.nz,"-x",p.electrodeMaterial,A);
@@ -136,18 +136,18 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
         display(plot_params)
         negf_params = (prune = union(["x"],(p.prune)),verbose=false, nelectrodes=size(Electrodes)[1])
 	negf_params = merge(p,negf_params)
-	H = runSCF(negf_params,A) # generates H(k)
+	H = runSCF(negf_params,A,returnvals) # generates H(k)
 	println("Generating self-energy matrices for electrodes...")
 	Σks = genΣₖs(plot_params,Electrodes) #i.e. the Σᵢ(E) at a given k value. Call with Σₖ = Σks(k); then Σ = Σₖ(E)
 	println("Defining Gʳ, Current operator, etc...")
 	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
         if(p.mixedDOS==true)
-            mdE = p.E_samples[1]*eV; η = 10^-(2.0)
+            mdE = p.E_samples[1]*eV; η = 10^-(2.5)
             function plottingGʳ(k::Vector{Float64})
                 function Gʳ(E::Float64)
                     Σₗ = Σks[1]; Σᵣ = Σks[2]
-                    return grInv((E+im*η)*I(p.nx*p.ny*p.nz*p.norb*2) .- H(k) .- Σₗ(k)(E) .- Σᵣ(k)(E)) 
+                    return pGrInv((E+im*η)*I(p.nx*p.ny*p.nz*p.norb*2) .- H(k) .- Σₗ(k)(E) .- Σᵣ(k)(E),4,false) 
                 end
                 return Gʳ
             end
@@ -159,12 +159,15 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 			#Test = DOS([0.1;0.1;0.1]);
             #testDOS(k) = ones(p.nx)*(k⋅k)/nm^2;
             nkDOS = 250
-            mixedDOS(plot_params,DOS,nkDOS,nkDOS)
+            fsfig = mixedDOS(plot_params,DOS,nkDOS,nkDOS)
+            if("mixedDOS" ∈ p.returnvals)
+                push!(returnvals,fsfig)
+            end
         end
         nkx = p.nk*!("x" ∈ negf_params.prune); nky = p.nk*!("y" ∈ negf_params.prune); nkz = p.nk*!("z" ∈ negf_params.prune);
 	
         kgrid, kweights, kindices, kxs, kys, kzs = genBZ(negf_params,nkx,nky,nkz) # generate surface BZ points
-        println("Sweeping transmission over kgrid: $(nkx*2+1), $(nky*2+1), $(nkz*2+1) ")
+        println("Sweeping transmission over kgrid: $(nkx*2+1), $(nky*2+1), $(nkz*2+1) ...")
         #TofE, Tmap, TmapList = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         #TofE, Tmap = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         parallelk = ((nkx+1)*(nky+1)*(nkz+1) > 8)
@@ -175,6 +178,9 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
         #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
         figh = pyplotHeatmap(S*kys/(π/p.a),S*kzs/(π/p.a),Tmap',"ky (π/a)","kz (π/a)","T(ky,kz)",:nipy_spectral, p.savedata, p.path)
+        if("tplot" ∈ p.returnvals)
+            push!(returnvals,figh)
+        end
         #plotMat(Tmap',"k₂","k₃")
         #if(p.savedata)
         #    SavePlots(figh,p.path,"Tmap")
@@ -205,8 +211,8 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function)
 end
 
 # takes in the parameters defined in runs.jl, returns H(k)
-function runSCF(p,A,save=false,path="",name="")
-	H = Hgen(p,A)
+function runSCF(p,A,returnvals,save=false,path="",name="")
+	H = Hgen(p,A,returnvals)
 	println("returning from SCF")
 	# returns call to H(k), Brms value for plotting and stats
 	return H
@@ -220,6 +226,7 @@ end
 function main(p,A=A,save=false,path="")
 	
 	# number of sites
+        returnvals = [] # array of things to return
         if(p.savedata)
             mkpath(p.path)
             mktxt(p.path * "params.txt",string(p))
@@ -235,11 +242,11 @@ function main(p,A=A,save=false,path="")
         end
         if(p.bands)
             println("Generating static hamiltonian...")
-            H = runSCF(p,A,save,path)
+            H = runSCF(p,A,returnvals,save,path)
             testH = H([0;0;0])
             println("size of H = $(size(testH))")
-            #Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
-            Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
+            Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
+            #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
             #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
             runBands(p,2^6,H,Q,true,p.arpack)
         end
@@ -251,10 +258,12 @@ function main(p,A=A,save=false,path="")
 	#DOS, Evals = runDOS(20,H,λ,save,path,Beff)
 	#runLDOS(20, H, λ,save,path,true,Beff)
         if(p.transport)
-            TofE = NEGF_2contacts_1layer(p,A)
+            TofE = NEGF_2contacts_1layer(p,A,returnvals)
             println("Done!\n")
-            return TofE
+            push!(returnvals,TofE)
+            return returnvals
         else
+            return returnvals
             println("Done!\n")
         end
 end
