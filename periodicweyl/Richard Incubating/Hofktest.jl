@@ -16,4 +16,21 @@ function H(k::Vector{Float64})
     return vf*τ₁⊗matdot(σ,k) .+ m*τ₃⊗I(2) .+ β*I(2)⊗σ₃ 
 end
 
+function kdictGen(A)
+    B = transpose(2*π*inv(A))
+    kdict = Dict(
+        "M--0" => B*[-1/2  ; -1/2;   0],
+        "M-+0" => B*[-1/2  ;  1/2;   0],
+        "M++0" => B*[ 1/2  ;  1/2;   0],
+        "M+-0" => B*[ 1/2  ; -1/2;   0],
+    )
+    return kdict
+end
+
+nm = 10^-9
+a = 5*nm;
+A = a*I(3)
+kdict = kdictGen(A)
+klist = ["M--0","M-+0","M++0","M+-0"]
+
 
