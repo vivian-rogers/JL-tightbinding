@@ -33,6 +33,118 @@ function mkfolder(path)
 	end
 end
 
+function b(row::Int,B::Int=4)
+    return ((row-1)*B+1):(row*B)
+end
+
+function buildM!(Mrows::Vector{Int},Mcols::Vector{Int},elems::Vector{ComplexF64}, rows::UnitRange{Int},cols::UnitRange{Int},submat)
+    offsetrow = rows[1]; offsetcol = cols[1]
+    for row in rows
+        for col in cols
+            push!(Mrows,row); push!(Mcols,col)
+            push!(elems,submat[row-offsetrow+1,col-offsetcol+1])
+        end
+    end
+end    
+
+function pGrInv(M::SparseMatrixCSC, B::Int=4, offdiag = true)
+    n = size(M)[1];
+    nBs = Int(n/B) # number of diagonal blocks
+    LCblocks = Matrix[] # go down the diagonal from left
+    RCblocks = Matrix[] # go down the diagonal from right 
+    # see Gerhardt Klimeck's powerpoint
+    Minv = spzeros(ComplexF64,n,n)
+    rows = Int[]; cols = Int[]; elems = ComplexF64[];
+    gʳL₀ = inv(Array(M[1:B,1:B]))
+    push!(LCblocks,gʳL₀)
+    for ib = 2:nBs
+        gʳLprior = LCblocks[ib-1]
+        # off-diagonal block coupling hamiltonian
+        V = M[b(ib-1,B),b(ib,B)]
+        #display(V)
+        # on-diagonal block hamiltonian
+        Dᵢ = M[b(ib,B),b(ib,B)]
+        # effective surface green's function including this point
+        gʳLᵢ = inv(Array(Dᵢ - V'*gʳLprior*V))
+        push!(LCblocks,copy(gʳLᵢ))
+    end
+    # now we will go back up the diagonal and incorporate coupling from right
+    Gʳend = last(LCblocks)
+    Gʳᵢ = Gʳend
+    buildM!(rows,cols,elems,b(nBs,B),b(nBs,B),Gʳend)
+    Gʳplus = copy(Gʳend)
+    if offdiag == "legacy"
+        for ib = reverse(1:(nBs-1))
+            gʳLᵢ = LCblocks[ib]
+            # off-diagonal block coupling hamiltonian
+            V = M[b(ib,B),b(ib+1,B)]
+            # see Klimeck's pwpt
+            Gʳᵢ = gʳLᵢ*(I(B) + V*Gʳplus*V'*gʳLᵢ)
+            # add one extra diagonal
+            Gʳᵢoffdiag = Array(-gʳLᵢ*V*Gʳplus)
+            buildM!(rows,cols,elems,b(ib+1,B),b(ib,B),transpose(Gʳᵢoffdiag))
+            buildM!(rows,cols,elems,b(ib,B),b(ib+1,B),Gʳᵢoffdiag)
+            # now do the block-diagonal Gʳ
+            buildM!(rows,cols,elems,b(ib,B),b(ib,B),Array(Gʳᵢ))
+            Gʳplus = copy(Gʳᵢ)
+        end
+    elseif offdiag == "transport"
+        # go back up the diagonal and also do bottom row
+        Gʳbotplus = copy(Gʳend)
+        for ib = reverse(1:(nBs-1))
+            gʳLᵢ = LCblocks[ib]
+            # off-diagonal block coupling hamiltonian
+            V = M[b(ib,B),b(ib+1,B)]
+            # see Klimeck's pwpt
+            # now do the block-diagonal Gʳ
+            Gʳᵢ = gʳLᵢ*(I(B) + V*Gʳplus*V'*gʳLᵢ)
+            buildM!(rows,cols,elems,b(ib,B),b(ib,B),Array(Gʳᵢ))
+            Gʳᵢbot = transpose(Array(transpose(-LCblocks[ib])*V*transpose(Gʳbotplus)))
+            buildM!(rows,cols,elems,b(ib,B),b(nBs,B),transpose(Gʳᵢbot))
+            buildM!(rows,cols,elems,b(nBs,B),b(ib,B),Gʳᵢbot)
+            Gʳplus = copy(Gʳᵢ)
+            Gʳbotplus = copy(Gʳᵢbot)
+        end
+        # generate the right-connected gʳs
+        gʳR₀ = inv(Array(M[b(nBs,B),b(nBs,B)]))
+        push!(RCblocks,copy(gʳR₀))
+        gʳRprior = gʳR₀
+        for ib = reverse(1:(nBs-1))
+            # off-diagonal block coupling hamiltonian
+            V = M[b(ib,B),b(ib+1,B)]
+            #display(V)+
+            # on-diagonal block hamiltonian
+            Dᵢ = M[b(ib,B),b(ib,B)]
+            # effective surface green's function including this point
+            gʳRᵢ = inv(Array(Dᵢ - V*gʳRprior*V'))
+            push!(RCblocks,copy(gʳRᵢ))
+            gʳRprior = gʳRᵢ
+        end
+        # and now do the top row
+        reverse!(RCblocks)
+        Gʳtopmin = Gʳᵢ
+        for ib = 2:nBs
+            gʳRᵢ = RCblocks[ib]
+            V = M[b(ib,B),b(ib-1,B)]
+            Gʳᵢtop = -transpose(gʳRᵢ*V*transpose(Gʳtopmin))
+            buildM!(rows,cols,elems,b(1,B),b(ib,B),Gʳᵢtop)
+            buildM!(rows,cols,elems,b(ib,B),b(1,B),transpose(Gʳᵢtop))
+            Gʳtopmin = copy(Gʳᵢtop)
+        end
+    else # or for case without the off-diagonal blocks
+        for ib = reverse(1:(nBs-1))
+            gʳLᵢ = LCblocks[ib]
+            # off-diagonal block coupling hamiltonian
+            V = M[b(ib,B),b(ib+1,B)]
+            # see Klimeck's pwpt
+            Gʳᵢ = gʳLᵢ*(I(B) + V*Gʳplus*V'*gʳLᵢ)
+            buildM!(rows,cols,elems,b(ib,B),b(ib,B),Array(Gʳᵢ))
+            Gʳplus = copy(Gʳᵢ)
+        end
+    end
+    return sparse(rows,cols,elems)
+end
+
 function int(i::Float64)
     return Int(round(i,sigdigits=1))
 end

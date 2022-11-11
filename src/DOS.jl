@@ -238,7 +238,7 @@ function complexEigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, r
 end
 
 
-function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
+#=function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
         #kx, ky, kz = genBZmesh(p.B,nx,ny,nz)
         #kDOS = kDOSgen(p,H,E)
         #DOS_Γ = DOS([0;0;0])
@@ -258,24 +258,31 @@ function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
         #kDOSmesh = [kDOS(kx*e1+ky*e2+kz*e3) for kx = kx, ky = ky, kz = kz]
         BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
         #f(kx::Float64,ky::Float64,kz::Float64) = tanh(kDOS(e1*kx + e2*ky + e3*kz))
-        kvals = CartProd([collect(k1),collect(k2)])
+        #kvals = CartProd([collect(k2),collect(k3)])
         #display(kvals)
-        vals = Float64[]
+        #vals = zeros(p.nx*ny*nz)
         #vals = zeros(size(kvals)[1])
-        iter = ProgressBar(eachindex(kvals))
-        Threads.@threads for ik in iter
-            SBZk = kvals[ik][:]
-            k = vcat(0,SBZk)
-            D = DOS(k)
+        iter = ProgressBar(eachindex(k2))
+        kDOSmesh = zeros(p.nx,2*ny+1,2*nz+1)
+        Threads.@threads for ik2 in iter
+            ky = k2[ik2]
+            for ik3 in eachindex(k3)
+                kz = k3[ik3]
+            #SBZk = kvals[ik][:]
+                k = [0,ky,kz]
+                D = DOS(k)
+                kDOSmesh[:,ik2,ik3] = D
             #display(k)
-            vals = append!(DOS)
+            #vals = append!(vals,D)
+            #display(D)
+            end
         end
-        vals = log.(vals)
+        vals = vec(kDOSmesh) #add back in Log here
         vals = (1/maximum(vals))*(vals .- minimum(vals)) #normalize to maximum of 3 for tanh
-        vals = tanh.(vals)
+        #vals = tanh.(vals)
         f1 = plot(histogram(x=vals))
         display(f1)
-        kDOSmesh = reshape(vals,(p.nx,ny*2+1,nz*2+1))
+        #kDOSmesh = reshape(vals,(p.nx,ny*2+1,nz*2+1))
         # may not be optimal but it works
         #kDOSmesh = map(f, kx,ky,kz)
         #kDOSmesh = pmap(k1,k2,k3 -> kDOS(k1*e1+k2*e2+k3*e3), kx
@@ -284,9 +291,9 @@ function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
         #max = ϵ; min = -ϵ;
         max = percentile(vals,99.8); min = percentile(vals,98.5)
         f = plot(isosurface(
-            x=kx[:],
-            y=ky[:],
-            z=kz[:],
+            x=collect(1:p.nx),
+            y=k2[:],
+            z=k3[:],
             value=kDOSmesh[:],
             isomin=min,
             isomax=max,
@@ -304,7 +311,7 @@ function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
         display(f)
         #gui()
         return f
-end
+end=#
 
 function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::String="x", nk1::Int=200, nk2::Int=200, k3::Float64=0, cones::Bool=true)
         eigsheets = zeros(neigs,2*nk1+1,2*nk2+1)
@@ -333,15 +340,17 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
         iter = ProgressBar(1:(2*nk1+1))
         #for ik1 in iter
         #for ik1 = 1:(2*nk1+1)
-        #BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
+        BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
         n = size(H([0.0;0.0;0.0]))[1]
         nospinN = Int(n/2)
         #Sx = I(nospinN)⊗σ₁; Sy = I(nospinN)⊗σ₂; Sz = I(nospinN)⊗σ₃
+        S = [1;0.2;0.2]
         for ik1 in iter
+        # breaks for some reason :( Should be fixed in the future? 
         #Threads.@threads for ik1 in iter
             for ik2 = 1:(2*nk2+1)
                 k = zeros(3); k[ik] = k3*X₃[ik]; 
-                k[minimum(iterdims)] = k1[ik1]; k[maximum(iterdims)] = k2[ik2];
+                k[minimum(iterdims)] = S[ik₂]*k1[ik1]; k[maximum(iterdims)] = S[ik₃]*k2[ik2];
                 Hofk = H(k)
                 #tol = eps(real(eltype(Hofk)))/2
                 #println("eps = $tol")
@@ -358,7 +367,7 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
                 for iE = 1:neigs
                     eigstate = Eigenstates[:,iE]
                     projectionsheets[iE,ik1,ik2] = real(eigstate'*Q*eigstate)
-                    if(cones)
+                    if(false)
                         spinperm = [ik₂;ik₃; ik]
                         for ax = 1:3
                             Sᵢ = I(nospinN)⊗σ[spinperm[ax]] 
@@ -376,17 +385,17 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
         maxmin = maximum(map(minimum∘(f(i1,i2) = eigsheets[:,i1,i2]),collect(1:(2*nk1+1)),collect(1:(2*nk2+1))))
         #maxE = maximum(eigsheets); minE = minimum(eigsheets)
         
-        maxE = minmax*1.2+0.3; minE = maxmin*1.2-0.3;
+        maxE = minmax*1.2+0.2; minE = maxmin*1.2-0.2;
         layout = Layout(scene = attr(
                                      xaxis_title = "k₁ (1/m)",
                                      yaxis_title = "k₂ (1/m)",
                                      zaxis_title = "Energy (eV)",
                                      zaxis=attr(range=[minE,maxE])
                                      ),
-                        title="σₓ-projected band structure for fixed k$kfixed = $(round(k3,sigdigits=2))×X ",)
+                        title="Chirality-projected band structure for fixed k$kfixed = $(round(k3,sigdigits=2))×X ",)
         if(cones)
             surfaces = []
-            surfaces = [surface(x=k1, y=k2, z=eigsheets[iE,:,:], surfacecolor=projectionsheets[iE,:,:], 
+            surfaces = [surface(x=S[ik₂]*k1, y=S[ik₃]*k2, z=eigsheets[iE,:,:], surfacecolor=projectionsheets[iE,:,:], 
                             colorscale=colors.RdBu, opacity=0.3, showscale = (iE==1), cmin = minimum(projectionsheets), cmax = maximum(projectionsheets))
                             for iE = 1:neigs] 
             x = vec(conesheets[1,:,:,4]); y = vec(conesheets[1,:,:,5]); z = vec(conesheets[1,:,:,6]);

@@ -92,7 +92,7 @@ end
 
 function distFromDW(p,Rvals::Vector{Vector{Float64}})
         a = p.A[1,1]
-        DWs = a*[0,0.5,1] # x pos of domain walls
+        DWs = a*[0.5] # x pos of domain walls
         nearestDW = [minimum([abs(R[1] - DWpos) for DWpos in DWs]) for R in Rvals]
 
         return Diagonal(1/nm*nearestDW)

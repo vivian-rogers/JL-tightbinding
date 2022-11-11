@@ -23,8 +23,8 @@ end
 
 function metalHopping(p::NamedTuple,NNs::Vector{Hopping},ia::Vector{Int})
 	iorb = ia[5]
-	#t = (3*p.t)*(I(2))
-	#pushHopping!(NNs, t, ia, ia, p)
+	t = (3*p.t - 1*eV)*(I(2))
+	pushHopping!(NNs, t, ia, ia, p)
 	for ax = 1:3
 		for dir = [-1,1]
 			# for weyl term in hamiltonian

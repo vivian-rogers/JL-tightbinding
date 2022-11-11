@@ -11,7 +11,7 @@ using Distributed
 using ProgressBars
 using Random
 
-export NEGF_prep, totalT, DOS, siteDOS
+export NEGF_prep, totalT, DOS, siteDOS, sitePDOS
 
 
 function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
@@ -54,7 +54,10 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 			effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ
 			#effH = (E + im*p.η)*I(ntot) .- Σ
 			#effH = (E + im*p.η)*I(ntot) .- H(k) .- 2*Σ
-			return grInv(effH)
+                        #G = inv(effH)
+                        G = grInv(effH)
+			#G = pGrInv(effH,4,"transport")
+			return G
 		end
 		return Gʳ
 	end
@@ -139,13 +142,29 @@ function DOS(genA::Function,kgrid::Vector{Vector{Float64}},kweights::Vector{Floa
 	return DOS
 end
 
-function siteDOS(p::NamedTuple, genGᴿ::Function, E::Float64=0.1*eV)
-    function DOS(k::Float64)
-        totToSite = sparse(I(p.nx*p.ny*p.nz)⊗(ones(p.norb*2)'))
-        SiteGᴿ = totToSite*genGᴿ(k)(E)
-        DOS = (-1/π)*imag.(Diagonal(SiteGᴿ))
-        return DOS
+function sitePDOS(p::NamedTuple, genGʳ::Function, Os, E::Float64=0.1*eV)
+    function DOS(k::Vector{Float64})
+            totToSite = sparse(I(p.nx*p.ny*p.nz)⊗(ones(p.norb*2)')) 
+            Gʳ = genGʳ(k)(E);
+            #SiteGᴿ = totToSite*(diag(Gᴿ))
+            #display(Gᴿ); println(""); display(SiteGᴿ); println(""); display(totToSite)
+            
+            #DOS = (-1/π)*imag.(SiteGᴿ)
+            return [Array((-1/π)*imag.(totToSite*diag(O*Gʳ))) for O in Os]
     end
+    return DOS
+end
+
+function siteDOS(p::NamedTuple, genGᴿ::Function, E::Float64=0.1*eV)
+    function DOS(k::Vector{Float64})
+        totToSite = sparse(I(p.nx*p.ny*p.nz)⊗(ones(p.norb*2)')) 
+		Gᴿ = genGᴿ(k)(E);
+		SiteGᴿ = totToSite*(diag(Gᴿ))
+		#display(Gᴿ); println(""); display(SiteGᴿ); println(""); display(totToSite)
+		DOS = (-1/π)*imag.(SiteGᴿ)
+            return Array(DOS)
+    end
+    return DOS
 end
 
 

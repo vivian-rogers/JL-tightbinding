@@ -24,6 +24,8 @@ function plotVec(x,yvecs, title)
 	gcf()
 end
 
+
+
 function addLLs(B, fig, nLL=5, Ef=0, vert=true, plot=false)
 	
 	# yes the /q at the end is weird, use it to convert Joules -> eV

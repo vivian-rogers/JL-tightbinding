@@ -543,7 +543,7 @@ rot(θ) = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 	end
 end=#
 	
-function nextsite(isite::Int)
+function nsite(isite::Int)
 	return -2*isite + 1
 end
 
