@@ -20,15 +20,15 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 	ntot = p.n*p.nsite*p.norb*2
 	Γks = Vector{Function}(undef,size(Σks))
 	for i = 1:p.nelectrodes
-            function Γ(k::Vector{Float64})
-                Σₖ = Σks[i](k)
-                function Γₖ(E::Float64)
-                	Σ = Σₖ(E)
-                    #return -2*imag(Σ) # weird def in weyl MTJ paper
-                    return im*(Σ .- Σ')
-                end
-            end
-            Γks[i] = deepcopy(Γ)
+		function Γ(k::Vector{Float64})
+			Σₖ = Σks[i](k)
+			function Γₖ(E::Float64)
+				Σ = Σₖ(E)
+				#return -2*imag(Σ) # weird def in weyl MTJ paper
+				return im*(Σ .- Σ')
+			end
+		end
+		Γks[i] = deepcopy(Γ)
 	end
 	# Gamma matrices are useful too...
 	function totΣk(E::Float64,k::Vector{Float64})
@@ -39,24 +39,30 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		end
 		totalΣ = spzeros(ComplexF64,p.n*p.nsite*p.norb*2,p.n*p.nsite*p.norb*2)
 		i = 1
-                for Σ in Σs
-		    #sig = Σ(E)
-                    #println("Σ$i = ")
-                    #display(sig)	
-                    totalΣ .+= Σ(E)
-                    i += 1
+		for Σ in Σs
+			totalΣ .+= Σ(E)
+			i += 1
 		end
 		return totalΣ
 	end
 	function genGʳ(k::Vector{Float64})
-		function Gʳ(E::Float64)
+                function Gʳ(E::Float64)
 			Σ = totΣk(E,k)
-			effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ
-			#effH = (E + im*p.η)*I(ntot) .- Σ
-			#effH = (E + im*p.η)*I(ntot) .- H(k) .- 2*Σ
+                        effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ
                         #G = inv(effH)
                         G = grInv(effH)
 			#G = pGrInv(effH,4,"transport")
+	                if(p.η_scattering > 0)
+                            error = 1
+                            while(error > 10^-5)
+                                Gprev = copy(Array(G))
+                                effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*G)
+                                #effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*(I(p.n)⊗[1 1; 1 1]).*G
+                                G = inv(effH)
+                                error = norm(G.-Gprev,1)/ntot^2
+                                println("Error = $error")
+                            end
+                        end
 			return G
 		end
 		return Gʳ
