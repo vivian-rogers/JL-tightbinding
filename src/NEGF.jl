@@ -56,8 +56,8 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
                             error = 1
                             while(error > 10^-5)
                                 Gprev = copy(Array(G))
-                                effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*G)
-                                #effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*(I(p.n)⊗[1 1; 1 1]).*G
+                                #effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*G)
+                                effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*(I(p.n)⊗[1 1; 1 1]).*G)
                                 G = inv(effH)
                                 error = norm(G.-Gprev,1)/ntot^2
                                 println("Error = $error")
