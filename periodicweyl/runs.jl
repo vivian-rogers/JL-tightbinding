@@ -16,7 +16,7 @@ using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 3; ny = 1; nz = 1; 
+nx = 100; ny = 1; nz = 1; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -29,27 +29,27 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 250, # half of brillouin zone used in transport
+             nk = 150, # half of brillouin zone used in transport
              
              # info for saving output of runs
-             path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=false, save=false,
+             path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
-             β = 0.25*eV, runtype = "blochlattice", fieldtype = "β", η = 1*10^-3, ηD = 10^-4, 
+             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, η_scattering = 0.033 # 10 nm dephasing 
              
              # run parameters`
-             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=false, mixedDOS=true, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=true, mixedDOS=true, θ=30.0, sweep="none",
             
              # things to return 
              returnvals = ["transmission"],
              # materials used in the device
-             electrodeMagnetization=true,electrodeMaterial="weyl",
+             electrodeMagnetization=false,electrodeMaterial="metal",
              deviceMagnetization=true,deviceMaterial="weyl",
              
              # if defining stripe domain superlattice       # penetration depth 
              #startDWs = -6*nm,
-             startDWs = 36*nm, 
-             DWwidth = 9*nm, DWspacing = 15*nm, λ = 2*nm,
+             #startDWs = 36*nm, 
+             startDWs = -5*nm, DWwidth = 9*nm, DWspacing = 15*nm, λ = 2*nm,
              #startDWs = 30*nm, DWwidth = 3*nm, DWspacing = 10*nm, 
              # if using proximity-magnetized profile
              #electrodeMagnetization=true,electrodeMaterial="mtjweyl",
@@ -88,6 +88,7 @@ end
 
 mkpath(p.path)
 
+#=
 # for recreating WMTJ
 WMTJparams = nxtoArg(3); WMTJparams = merge(WMTJparams, (electrodeMagnetization=true,electrodeMaterial="mtjweyl", deviceMagnetization=false,deviceMaterial="ins"));
 @time runFieldTexture(WMTJparams)
@@ -101,11 +102,11 @@ WMTJparams = nxtoArg(3); WMTJparams = merge(WMTJparams, (electrodeMagnetization=
 bandsp = nxtoArg(Int(round(2.5*p.DWspacing/InBi.a,sigdigits=3))); bandsp = merge(bandsp, (bands=true, parallel="k"));
 @time runFieldTexture(bandsp)
 
+=#
 
-#=
 (x,y, fig) = Sweep1DSurf(runFieldTexture,startDWstoArg,[DWstart for DWstart = -1.0*p.DWwidth:(3*nm):(p.SLa₁[1] - 2*p.DWwidth)],p.E_samples,"Stripe DW start position (nm)", "Energy (eV)","T (e²/h)",(1/nm),false, p.parallel)
 #SavePlots(fig,p.path,"transmissionsweep")
-=#
+
 
 mkdelim(p.path*"dwsweep.txt",[x y])
 
