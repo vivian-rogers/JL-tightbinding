@@ -12,24 +12,6 @@ using Logging
 export getBands, project, expectedValue
 
 function interpolate(n,klist,a,kdict)
-	#=kdict = Dict(
-		    "Γ" => [0;    0;    0],
-		    "X" => [1/2;  0;    0],
-		    "K" => [√2/4; √2/4; 0],
-		    "U" => [-1/2; 0;   0],
-		    "A" => [0;   0; 1/2],	
-		    "H" => [1/3;1/3;1/2]
-		    )
-	=#
-	#=kdict = Dict(
-		    "Γ" => [0;   0;   0],
-		    "K" => [1/2; tand(30)/2; 0],
-		    "M" => [1/2; 0;   0],
-		    "M-" => [-1/2; 0;   0],
-		    "A" => [0;   0; 1/2],	
-		    "H" => [1/3;1/3;1/2]
-		    )=#	    
-	#highSym = map(k->kdict[k], klist)
 	highSym = (1)*map(k->kdict[k], klist)
 	kpts = Any[]
 	d = 1/n
