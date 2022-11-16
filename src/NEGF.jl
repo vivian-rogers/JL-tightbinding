@@ -53,7 +53,7 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 			#G = pGrInv(effH,4,"transport")
 	                if(p.l_scattering > 0)
 			    G = pGrInv(effH,4,false)
-                            η_scattering =  
+                            η_scattering = (ħ/q)*vf/(2*p.l_scattering) 
                             error = 1
                             while(error > 10^-6)
                                 Gprev = copy(G)
@@ -64,9 +64,11 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
                                 error = norm(G.-Gprev,1)/ntot
                                 println("Error = $error")
                             end
+                        end
+                        if(p.n_BLAS > 1)
 			    G = inv(Array(effH))
                         else
-			    G = inv(Array(effH))
+			    G = grInv(effH)
 			end
 			return G
 		end
