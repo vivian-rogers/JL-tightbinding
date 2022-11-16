@@ -16,7 +16,7 @@ using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 100; ny = 1; nz = 1; 
+nx = 100; ny = 10; nz = 10; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -29,21 +29,21 @@ runparams = (
              
              # energy range for transport 
              E_samples = [0.1],
-             nk = 150, # half of brillouin zone used in transport
+             nk = 0, # half of brillouin zone used in transport
              
              # info for saving output of runs
              path = "../outputs/testrunstacc/" * Dates.format(Dates.now(), "e-dd-u-yyyy--HH.MM.SS/"), savedata=true, save=true,
              
              # exchange splitting, name of field pattern, A or β (vector pot or exchange), finite-time broadenings
-             β = 0.25*eV, runtype = "multiblochdws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, η_scattering = 0.033 # 10 nm dephasing 
+             β = 0.25*eV, runtype = "multineeldws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, l_scattering = 10*nm, #dephasing 
              
              # run parameters`
-             parallel="k", n_BLAS=1, transport=true, verbose = false, plotfield = true, bands=true, mixedDOS=true, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=128, transport=true, verbose = false, plotfield = false, bands=false, mixedDOS=false, θ=30.0, sweep="none",
             
              # things to return 
              returnvals = ["transmission"],
              # materials used in the device
-             electrodeMagnetization=false,electrodeMaterial="metal",
+             electrodeMagnetization=true,electrodeMaterial="weyl",
              deviceMagnetization=true,deviceMaterial="weyl",
              
              # if defining stripe domain superlattice       # penetration depth 

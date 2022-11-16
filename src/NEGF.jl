@@ -49,20 +49,25 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
                 function Gʳ(E::Float64)
 			Σ = totΣk(E,k)
                         effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ
-                        #G = inv(effH)
-                        G = grInv(effH)
+                        #G = grInv(effH)
 			#G = pGrInv(effH,4,"transport")
-	                if(p.η_scattering > 0)
+	                if(p.l_scattering > 0)
+			    G = pGrInv(effH,4,false)
+                            η_scattering =  
                             error = 1
-                            while(error > 10^-5)
+                            while(error > 10^-6)
                                 Gprev = copy(G)
                                 #effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*G)
-                                effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*(I(p.n)⊗[1 1; 1 1]).*G
-                                G = grInv(effH)
-                                error = norm(G.-Gprev,1)/ntot^2
+                                effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*(I(p.n*p.norb)⊗[1 1; 1 1]).*G
+                                G = pGrInv(effH,4,false)
+				#G = grInv(effH)
+                                error = norm(G.-Gprev,1)/ntot
                                 println("Error = $error")
                             end
-                        end
+			    G = inv(Array(effH))
+                        else
+			    G = inv(Array(effH))
+			end
 			return G
 		end
 		return Gʳ
