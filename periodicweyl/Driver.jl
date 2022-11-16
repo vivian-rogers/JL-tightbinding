@@ -260,8 +260,9 @@ function main(p,A=A,save=false,path="")
         if(p.transport)
             TofE = NEGF_2contacts_1layer(p,A,returnvals)
             println("Done!\n")
-            push!(returnvals,TofE)
-            return returnvals
+            #push!(returnvals,TofE)
+            #return returnvals
+            return TofE
         else
             return returnvals
             println("Done!\n")

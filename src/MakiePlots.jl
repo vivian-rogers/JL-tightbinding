@@ -90,7 +90,7 @@ function render2TDevice(p::NamedTuple,Rvals::Vector{Vector{Float64}}, fvals::Vec
         Rcontact = slab([xmax,totlim+xmax],[ymin,ymax],[zmin,zmax])
         #wireframe!([Lcontact,device,Rcontact])
         lim = slab([-totlim+xmin,totlim+xmax],[ymin,ymax],[zmin,zmax])
-        fig = Figure(figure_padding=50,resolution=(1000,500))
+        fig = Figure(figure_padding=50,resolution=(1600,1000))
         fontsize_theme = Theme(fontsize = 25)
         set_theme!(fontsize_theme)
         aspect = ((xmax+totlim - xmin-totlim)/(ymax-ymin),1,1)

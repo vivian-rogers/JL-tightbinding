@@ -16,7 +16,7 @@ using Dates
 #main(params)
 
 #nx = 10; ny = 10; nz = 10; 
-nx = 100; ny = 10; nz = 10; 
+nx = 100; ny = 12; nz = 12; 
 #nx = 12; ny = 1; nz = 1; 
 # superlattice basis vectors, in basis of a_1, a_2, a_3
 SL1 = [nx; 0; 0]; SL2 = [0; ny; 0]; SL3 = [0; 0; nz]
@@ -38,7 +38,7 @@ runparams = (
              β = 0.25*eV, runtype = "multineeldws", fieldtype = "β", η = 1*10^-4, ηD = 10^-4, l_scattering = 10*nm, #dephasing 
              
              # run parameters`
-             parallel="k", n_BLAS=128, transport=true, verbose = false, plotfield = false, bands=false, mixedDOS=false, θ=30.0, sweep="none",
+             parallel="k", n_BLAS=128, transport=true, verbose = false, plotfield = true, bands=false, mixedDOS=false, θ=30.0, sweep="none",
             
              # things to return 
              returnvals = ["transmission"],
