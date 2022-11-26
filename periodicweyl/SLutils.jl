@@ -119,6 +119,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
                 #a = 5*nm; l = 1*nm
                 #a = 30*nm; l = 5*nm
                 i = 0
+                #decay = 1
                 decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
                 while error > 10^-5
                     θ₋ = deepcopy(θ)
@@ -137,6 +138,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
                 #a = 5*nm; l = 1*nm
                 #a = 30*nm; l = 5*nm
                 i = 0
+                #decay = 1
                 decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/p.λ)
                 while error > 10^-5
                     θ₋ = deepcopy(θ)
@@ -194,7 +196,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 	elseif(runtype=="blochdw")
 		function dwbβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
-			λ = 2*nm # penetration depth of ferromagnetism into slab
+			λ = p.λ # penetration depth of ferromagnetism into slab
                         ymag = cos(2*π*(θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
                         zmag = (1-ymag^2)*sign(sin(2*π*(θ/360)*R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
 			decay=1
@@ -205,7 +207,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 	elseif(runtype=="neellattice")
 		function latnβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
-			λ = 2*nm # penetration depth of ferromagnetism into slab
+			λ = p.λ # penetration depth of ferromagnetism into slab
                         ymag = cos(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
                         xmag = sin(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
                         decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
@@ -215,7 +217,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 	elseif(runtype=="blochlattice")
 		function latbβ(R::Vector{Float64})
 			α = 51 # arbitrary constant to smooth square wave
-			λ = 2*nm # penetration depth of ferromagnetism into slab
+			λ = p.λ # penetration depth of ferromagnetism into slab
                         ymag = cos(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
                         zmag = sin(2*π*(p.θ/360)*(R⋅p.A[:,1]/(p.A[:,1]⋅p.A[:,1])))
                         decay= exp(-((p.nz-1)*p.a₃[3] - R[3])/λ)
