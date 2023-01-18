@@ -43,16 +43,25 @@ def replace(fileName, argList, keyWord='l_scattering'):
         
         # text = [line.replace('l_scattering = 10*nm', 'l_scattering = 10*nm') for line in text]
 
+        
+        base = []
+        index = None
+        for i, line in enumerate(text):
+            if keyWord in line:
+                index = i
+                continue
+            base.append(line)
+
         for arg in argList:
             ######### OLD IMPLEMENTATION #########
             # files.append([line.replace(keyWord, 'l_scattering = ' + arg + '*nm') for line in text])
 
-            file = []
-            for line in text:
-                if keyWord in line:
-                    size = len(line) - len(line.lstrip())
-                    line = line[0:size] + keyWord + ' = ' + arg + ',\n'
-                file.append(line)
+            file = base.copy()
+            line = text[index]
+            size = len(line) - len(line.lstrip())
+            line = line[0:size] + keyWord + ' = ' + arg + ',\n'
+            file.insert(index, line)
+
             files.append(file)
 
 
@@ -60,7 +69,6 @@ def replace(fileName, argList, keyWord='l_scattering'):
         with open('runs_' + keyWord.upper() + '_' + argList[i] + '.jl', 'w') as writer:
             for line in file:
                 writer.write(line)
-
 
 
 n = len(sys.argv)
