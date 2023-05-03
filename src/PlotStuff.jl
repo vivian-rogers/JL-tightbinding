@@ -1,6 +1,6 @@
 
 module PlotStuff
-using Plots; pyplot()
+using Plots
 using PyPlot
 using ColorSchemes
 using Constants
@@ -14,7 +14,7 @@ export plotBands, plot2D, SaveFigure, SavePlots, plotVec, plotSurf, plotFunct, p
 
 fsize=15; fname="arial"
 rc("font", family=fname, size=fsize)
-pyplot()
+#pyplot()
 function plotVec(x,yvecs, title)
 	nY = size(yvecs)[1]
 	for i = 1:nY
@@ -26,10 +26,9 @@ end
 
 
 
-function addLLs(B, fig, nLL=5, Ef=0, vert=true, plot=false)
-	
-	# yes the /q at the end is weird, use it to convert Joules -> eV
-	LLs = [sign(n)*vf*√(2*q*ħ*abs(n)*B)/q for n = -nLL:nLL]
+function addLLs(fig, B::Float64, vf::Float64=1.0*10^6, nLL::Int=3, Ef::Float64=0.0, vert=true, plot=false)
+	LLs = [sign(n)*√(2*q*ħ*abs(n)*B*vf^2)/q for n = -nLL:nLL]
+	#LLs = [sign(n)*vf*√(2*q*ħ*abs(n)*B)/q for n = -nLL:nLL]
 	println("Landau levels: ")
 	show(LLs)
 	println("\n")
@@ -236,21 +235,24 @@ function plotBands(klist, nk, E, projStates, name="")
 	nSymPts = size(klist)[1]
 	indices = LinRange(0,nSymPts-1, size(E)[1])
 	nE = size(E)[2]
-	fig, ax = PyPlot.subplots();
+        fig, ax = PyPlot.subplots(figsize=(9,3));
 	#display(E[:,1])
 	#display(plot!(indices,E[1,:]))
 	#display(plot!(indices,E[:,2]))
 	#Eplot = transpose(E)
-	kSymPts = [i for i =0:(nSymPts-1)]
+        kSymPts = [i for i =0:(nSymPts-1)]
 	for kTick in kSymPts
-		PyPlot.plot([kTick,kTick],[-30,30],c="#666666",lw=0.5)
+            PyPlot.plot([kTick,kTick],[-30,30],c="#666666",lw=0.5)
 	end
 	PyPlot.xticks(kSymPts,klist)
 	xlim(0, nSymPts-1)
-	maxE = maximum(E)
-	minE = minimum(E)
+        maxE = minimum(abs.(E))
+	#maxE = maximum(E)
+	minE = -maxE
+	#minE = minimum(E)
 	ylabel("E - Ef (eV)")
-	ylim(minE+0.1,maxE-0.1)
+        dE = 0.4
+	ylim(minE-dE,maxE+dE)
 
 
 	#set_cmap("rainbow")
@@ -260,12 +262,13 @@ function plotBands(klist, nk, E, projStates, name="")
 		#Projvals = collect(projStates[:,iE])
 		#scatter(indices,Evals,c=Projvals, s=0.9)
 		#PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9)
-		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm", s=0.9, vmin = -1, vmax = 1)
+		PyPlot.scatter(indices,Evals,c=Projvals, cmap="coolwarm_r", s=0.4, vmin = -1.0, vmax = 1.0)
 		#scatter(indices,Evals,c=Projvals, vmin=0, vmax=1,s=0.9)
 		#display(plot!(indices,Evals))
 	end
 	PyPlot.colorbar(label=name);
 	gcf()
+        #fig
 end
 
 function plotPoints(Rvals,z,xlab="",ylab="",zlab="",name="",cmap= :redgreensplit,save=false)
@@ -412,7 +415,8 @@ function Sweep1DSurf(f::Function, gridToArgs::Function, xvals::Vector, yvals::Ve
     if(surf)
         f = plotHeatmap(xvals,yvals,zmat,xlab,ylab)
     else
-        f = plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],:log10)
+        scaling = :identity
+        f = plot1D(xscale*xvals,[zmat[i,:] for i in eachindex(yvals)],xlab, zlab,["$ylab = $y" for y in yvals],scaling)
     end
     return (xscale*xvals,reduce(hcat,[zmat[i,:] for i in eachindex(yvals)]), f)
 end

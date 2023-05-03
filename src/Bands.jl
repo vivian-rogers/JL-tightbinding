@@ -9,7 +9,7 @@ using Arpack
 using Logging
 #IJulia.installkernel("Julia nodeps", "--depwarn=no")
 
-export getBands, project, expectedValue
+export getBands, project, expectedValue, projGrBands
 
 function interpolate(n,klist,a,kdict)
 	highSym = (1)*map(k->kdict[k], klist)
@@ -26,11 +26,13 @@ function interpolate(n,klist,a,kdict)
 	return kpts
 end
 
-function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array of kpt strings, number of interpolation pts, H(k) function
+
+
+
+
+function getBands(klist::Vector{String}, kdict::Dict, n::Int, a::Float64, Hofk::Function, arpack=32) #takes in array of kpt strings, number of interpolation pts, H(k) function
 	kpts = interpolate(n,klist,a,kdict)
 	nk = size(kpts)[1]
-	
-	#	show(kpts)
 	testH = Hofk([0.0;0.0;1.0])
 	if(any(isnan,testH)==true)
 		throw(DomainError(testH, "Something broken in hamiltonian definition! Returning NaN"))
@@ -39,10 +41,10 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	#initialize the ban array
 	#λ_test, evecs_test = eig(testH, 1E-12)
 	#arpack = true # small hamiltonian, few bands
-	if(arpack)
+	if(arpack != false)
 		maxiter = 8000
 		#nE = 128
-		nE = 20
+		nE = arpack
 		#nE = 6*Int(floor(log2(size(testH)[1])))
 		nEig = size(testH)[1]
 		if(nE < size(testH)[1])
@@ -62,8 +64,9 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	#
 	#d = 100
 	#Logging.disable_logging(Logging.Warn)
-        iter = ProgressBar(1:nk)
-        for ik in iter
+        #iter = ProgressBar(1:nk)
+        #for ik in iter
+        for ik in 1:nk
                 k = kpts[ik]
                 #set_description(iter, string(print("k value: $(round.(k,sigdigits=3))")))	
                 #println("H(k) gen time:")
@@ -85,7 +88,7 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 		#print("H = $H\n")
 		#if(norm(H) < 0.01 || k⋅k≈0)
 		#	Estatek = (1/√(nEig))*ones(nEig,nE); Eofk = zeros(nE)
-		if(arpack && !(k⋅k≈-1))
+		if(arpack != false  && !(k⋅k≈-1))
                         #println("H(k) diagonalization time:")
 			Eofk, Estatek = eigs(H,nev=nE, which=:SM, maxiter=maxiter)
 			#@time Eofk, Estatek = eigs(H,nev=nE, which=:SM, maxiter=maxiter)
@@ -109,6 +112,37 @@ function getBands(klist, kdict, n, a, Hofk, arpack::Bool=false) #takes in array 
 	return Evals, Estates
 end
 
+function projGrBands(klist, kdict, n, a, Hofk, Q, arpack=32, η = 10^-4)
+        Evals, Estates = getBands(klist, kdict, n, a, Hofk,arpack)
+        println("Got eigvals!")
+        kpts = interpolate(n,klist,a,kdict)
+	nk = size(kpts)[1]
+	testH = Hofk([0.0;0.0;1.0])
+        nE = size(testH)[1]
+        function Gʳ(E::Float64, k::Vector{Float64})
+            return pGrInv((E+im*η)*I(nE) .- Hofk(k),4,false) 
+        end
+	nk = size(Evals)[1]
+	nEsampled = size(Evals)[2]
+	#nE = size(Estates)[3]
+	projVals = zeros(Float64, nk, nEsampled)
+	#adjoint = projKet' #takes |proj> -> <proj|
+        #iter = ProgressBar(1:nk)
+        #for ik in iter
+	#@Threads.threads for ik in iter
+	@Threads.threads for ik in 1:nk
+		for iE in 1:nEsampled
+                        k = kpts[ik]
+			#show(size(Estates))
+			Eval = Evals[ik,iE]
+                        Gr = Gʳ(Eval,k)
+                        #println("size Gr: $(size(Gr)), size Q: $(size(Q))")
+                        projVals[ik,iE] = tr(imag.(Q*Gr))/tr(imag.(Gr)) #performs <proj|band>
+		end
+	end
+	return Evals, projVals
+end
+
 function project(projKet, Estates) #takes in array of kpt strings, number of interpolation pts, H(k) function
 	nk = size(Estates)[1]
 	nN = size(Estates)[2]
@@ -122,6 +156,7 @@ function project(projKet, Estates) #takes in array of kpt strings, number of int
 	end
 	return projVals
 end
+
 
 function expectedValue(Q, Estates) #takes in array of kpt strings, number of interpolation pts, H(k) function
 	nk = size(Estates)[1]

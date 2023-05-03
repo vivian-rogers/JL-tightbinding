@@ -24,6 +24,11 @@ function CartProd(Vecs)
         return init
 end
 
+function fermi(ΔE::Float64,T::Float64)
+        kb = 8.617*10^-5
+        return 1/( exp(ΔE/(kb*T))  + 1)
+end
+
 function mkfolder(path)
 	if(isdir(path))
 		println("$path already exists...")

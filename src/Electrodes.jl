@@ -326,7 +326,14 @@ function HcontactGen(p::NamedTuple,NNs::Vector{Hopping},ElectrodeInfo::Electrode
 	Hₗ = makeElectrodeH(p,ElectrodeInfo,LedgeNNs)
 	Hᵣ = makeElectrodeH(p,ElectrodeInfo,RedgeNNs)
 	function Hslab(k::Vector{Float64})
-		return Hc(k).+H₀	
+            Hcenter = Hc(k)
+            if(size(Hcenter) == (0,0))
+                return H₀
+            elseif(size(H₀) == (0,0))
+                return Hcenter
+            else
+                return Hc(k).+H₀
+            end
 	end	
 	function H(k::Vector{Float64})
 		return Hₑ(k).+H₀	
@@ -364,9 +371,10 @@ function TΣgen(p::NamedTuple,H::SparseMatrixCSC,βₐ::SparseMatrixCSC, βₜ::
         error = 1
         # using transfer matrix method described in 
         ω = (E + im*p.η)*I(n)
-        t₀ = grInv(ω.-H)*βₐ
+        t₀ = inv(Array(ω.-H))*βₐ
         #t̃₀ = grInv(ω.-H)*βₜ
-        t̃₀ = grInv(ω.-H)*βₜ
+        t̃₀ = inv(Array(ω.-H))*βₜ
+        #t̃₀ = grInv(ω.-H)*βₜ
         #t₁ = grInv(I(n) .- t₀*t̃₀ .- t̃₀*t₀)*t₀^2
         t̃₋ = I(n); t̃ᵢ = Array(t̃₀)
         t₋ = I(n); tᵢ = Array(t₀)

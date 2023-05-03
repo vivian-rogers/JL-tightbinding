@@ -14,6 +14,7 @@ using ColorSchemes
 using UsefulFunctions
 using ProgressBars
 using PlotStuff
+using SaveStuff
 
 export render2TDevice, mixedDOS
 
@@ -90,12 +91,12 @@ function render2TDevice(p::NamedTuple,Rvals::Vector{Vector{Float64}}, fvals::Vec
         Rcontact = slab([xmax,totlim+xmax],[ymin,ymax],[zmin,zmax])
         #wireframe!([Lcontact,device,Rcontact])
         lim = slab([-totlim+xmin,totlim+xmax],[ymin,ymax],[zmin,zmax])
-        fig = Figure(figure_padding=50,resolution=(1600,1000))
-        fontsize_theme = Theme(fontsize = 25)
+        fig = Figure(figure_padding=80,resolution=(1600,1000))
+        fontsize_theme = Theme(fontsize = 40)
         set_theme!(fontsize_theme)
         aspect = ((xmax+totlim - xmin-totlim)/(ymax-ymin),1,1)
         #smalllabel=20;
-        scene = Axis3(fig[1,1],aspect = aspect, xlabel = "X Position (nm)", ylabel = "Periodic in Y",
+        scene = Axis3(fig[1,1],aspect = aspect, xlabel = "X (nm)", ylabel = "Periodic in Y",
                       zlabel = "Periodic in Z", title = "DW start position = $(round(p.startDWs*convnm,sigdigits=3)) nm")
         
         alpha = 0.3
@@ -152,10 +153,11 @@ function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
         #vals = zeros(size(kvals)[1])
         kDOSmeshL = zeros(2*ny+1,2*nz+1,p.nx)
         kDOSmeshR = zeros(2*ny+1,2*nz+1,p.nx)
-        #=iter = ProgressBar(eachindex(k2))
-        Threads.@threads for ik2 in iter=#
+        iter = ProgressBar(eachindex(k2))
         println("Running fermi surface over $(2*ny+1) x $(2*nz+1) k-grid")
-        for ik2 in eachindex(k2)
+        Threads.@threads for ik2 in iter
+        #for ik2 in iter
+        #for ik2 in eachindex(k2)
             ky = k2[ik2]
             for ik3 in eachindex(k3)
                 kz = k3[ik3]
@@ -166,6 +168,16 @@ function mixedDOS(p::NamedTuple,DOS::Function, ny::Int=10, nz::Int=10)
             end
         end
         #DOS = zeros(p.nx*(2*ny+1)*(2*nz+1))
+        saveLDOS = true
+        if(saveLDOS)
+            dx = 3
+            for ix = 1:dx:p.nx
+                fL = "LDOS_L_$ix.txt"
+                fR = "LDOS_R_$ix.txt"
+                mkdelim(p.path * fL, [kDOSmeshL[:,:,ix]'])
+                mkdelim(p.path * fR, [kDOSmeshR[:,:,ix]'])
+            end
+        end
         #for iDOS = eachindex(kDOSmesh)
         #    DOS[iDOS] = kDOSmesh[iDOS]
         #end

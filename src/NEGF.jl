@@ -56,7 +56,7 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
                             η_scattering = (ħ/q)*vf/(2*p.l_scattering) 
                             error = 1
                             mixing = 0.5
-                            while(error > 10^-5)
+                            while(error > 10^-6)
                                 Gprev = copy(G)
                                 #effH = Array((E + im*p.η)*I(ntot) .- H(k) .- Σ .- p.η_scattering*G)
                                 effH = (E + im*p.η)*I(ntot) .- H(k) .- Σ .- η_scattering*(I(p.n*p.norb)⊗[1 1; 1 1]).*G
@@ -83,7 +83,7 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		function Tatk(E)
 			GʳE = Gʳ(E)
 			#return tr(GʳE*Γ₁(E)*GʳE'*Γᵢ(E))
-			return tr(Γ₁(E)*GʳE*Γᵢ(E)*GʳE')
+			return Γ₁(E)*GʳE*Γᵢ(E)*GʳE'
 		end
 		return Tatk
 	end
@@ -91,12 +91,60 @@ function NEGF_prep(p::NamedTuple,H::Function, Σks::Vector{Function})
 		Gʳ = genGʳ(k)
 		function A(E::Float64)
 			GʳE = Gʳ(E)
-			Σ = totΣk(E,k)
-			return GʳE*im*(Σ .- Σ')*GʳE'
+                        A = im*(GʳE.-GʳE')
+			#Σ = totΣk(E,k)
+			#return GʳE*im*(Σ .- Σ')*GʳE'
 		end
 		return A
 	end
-	return genGʳ, genT, genA
+	function genScatteredT(k::Vector{Float64}, contact::Int=2)
+                Dm = (ħ/q)*vf/(2*p.l_scattering) 
+                Dₘ = Dm*I(p.n)⊗(ones(p.norb,p.norb)⊗ones(2,2))
+                if(p.l_scattering ≈ 0)
+                    return genT(k)
+                    #Dₘ = zeros(ntot,ntot)
+                end
+                fL = fermi(-p.δV/2,p.T); fR = fermi(p.δV/2,p.T);
+		function linearConductance(E::Float64)
+                    Σ = totΣk(E,k)
+                    Gʳ = inv(Array((E + im*p.η)*I(ntot) .- H(k) .- Σ))
+                    Γ₁E = sparse(Γks[1](k)(E))
+                    ΓᵢE = sparse(Γks[contact](k)(E))
+                    # loop to converge Gʳ
+                    error = 1
+                    mixing = 0.7; cutoff = 10^-6
+                    while(error > cutoff)
+                        Gʳ0 = copy(Gʳ)
+                        Hofk = H(k)
+                        println("Dm = $(Dm), size H = $(size(Hofk)), size Σ = $(size(Σ)), size Σ_m = $(size(Dₘ.*Gʳ))")
+                        #display(Array(Gʳ))
+                        #display(Array(Hofk))
+                        #display(Array(Σ))
+                        #display(Array(Dₘ.*Gʳ))
+                        Gʳ = inv(Array((E + im*p.η)*I(ntot) .- Hofk .- Σ .- Dₘ.*Gʳ))
+                        Gʳ = mixing*Gʳ .+ (1-mixing)*Gʳ0
+                        error = norm((Gʳ.-Gʳ0),1)/norm(Gʳ,1)
+                        println("Gʳ error = $error")
+                    end
+                    # now loop to converge Gⁿ
+                    error = 1
+                    Gⁿ = Gʳ*(ΓᵢE*fL .+ Γ₁E*fR)*(Gʳ)'
+                    Σin = Dₘ.*Gⁿ
+                    while(error > cutoff)
+                        Gⁿ0 = copy(Gⁿ)
+                        Gⁿ = Gʳ*dropzeros(ΓᵢE*fL .+ Γ₁E*fR .+ Σin)*(Gʳ)'
+                        Gⁿ = mixing*Gⁿ .+ (1-mixing)*Gⁿ0
+                        Σin = sparse(Dₘ.*Gⁿ)
+                        error = norm((Gⁿ.-Gⁿ0),1)/norm(Gⁿ,1)
+                        println("Gⁿ error = $error")
+                    end
+                    A = im*(Gʳ.-Gʳ')
+                    Top = (Σin*A .- Γ₁E*Gⁿ)/(fR-fL)
+                    return Top
+		end
+		return linearConductance
+	end
+	return genGʳ, genT, genA, genScatteredT
 end
 
 #function DOS(genA::Function,kvals::Vector{Vector{Float64}},kpts::Vector{Float64},E_samples::Vector{Float64})
@@ -182,8 +230,9 @@ function siteDOS(p::NamedTuple, genGᴿ::Function, E::Float64=0.1*eV)
 end
 
 
-function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},parallel::String="k",Eslice=0.25)
+function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vector{Float64}},kweights::Vector{Float64},Evals::Vector{Float64},Eslice::Float64,parallel::Bool,Qs::Vector{AbstractMatrix})
 	nE = size(Evals)
+        nOps = size(Qs)
 	nkz = maximum([kindex[2] for kindex in kindices])
 	nky = maximum([kindex[1] for kindex in kindices])
 	#special slice to map BZ
@@ -193,7 +242,8 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 	imTmap = zeros(nky,nkz)
 	#TmapList = zeros(nk)
 	TofE = zeros(nE)
-	if(parallel == "k")
+        #for Q in Qs
+            if(parallel)
 		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		iter = ProgressBar(1:nk)
 		knum = shuffle([i for  i = 1:nk])
@@ -209,7 +259,7 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				if(approxIn(Eslice, Evals))
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = Tₖ(E)
+                                                T = tr(Tₖ(E)*Q)
 						TofE[iE] += real(T*w)
 						if(E≈Eslice)
                                                         Tmap[kindex[1],kindex[2]] = real(T)
@@ -218,19 +268,19 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				elseif(typeof(Eslice) == Float64) 
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = Tₖ(E)
+                                                T = tr(Tₖ(E))
 						TofE[iE] += real(T*w)
 					end
 					Tmap[kindex[1],kindex[2]] = real(Tₖ(Eslice))
 				else
 					for iE in eachindex(Evals)
 						E = Evals[iE]
-						T = Tₖ(E)
+                                                T = tr(Tₖ(E))
 						TofE[iE] += real(T*w)
 					end
 				end
 		end
-	else
+            else
 		#BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
 		knum = shuffle([i for  i = 1:nk])
 		for ik = 1:nk
@@ -245,20 +295,25 @@ function totalT(genT::Function,kindices::Vector{Vector{Int}},kgrid::Vector{Vecto
 				=#
 				iter = ProgressBar(1:size(Evals)[1])
 				for iE = 1:size(Evals)[1]
-				#for iE in iter
+			        #for iE in iter
 				#Threads.@threads for iE in iter
                                     E = Evals[iE]
-                                    T = deepcopy(Tₖ(E))
+                                    T = tr((Tₖ(E)))
                                     TofE[iE] += real(T*w)
                                     #=if(E≈Eslice)
                                             Tmap[kindex[1],kindex[2]] = real(T)
                                             TmapList[i] = real(T)
                                     end=#
 				end
-				Tmap[kindex[1],kindex[2]] = real(Tₖ(Eslice))
+                                if(nk <= 1)
+                                    Tmap[kindex[1],kindex[2]] = TofE[1]
+                                else
+                                    Tmap[kindex[1],kindex[2]] = real(tr(Tₖ(Eslice)))
+                                end
 		end
-	end
-	return TofE, Tmap, imTmap
+            end
+	#end
+	return TofE, Tmap
 end
 
 			

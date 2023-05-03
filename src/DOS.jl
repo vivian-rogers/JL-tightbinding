@@ -13,6 +13,7 @@ using ProgressBars
 using StatsBase
 using Operators
 using Constants
+using LaTeXStrings
 #using GLMakie
 
 export energySurface, mixedDOS, complexEnergySurface, kslice, getDOS, getLDOS, eigSurface, complexEigSurface
@@ -313,7 +314,8 @@ end
         return f
 end=#
 
-function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::String="x", nk1::Int=200, nk2::Int=200, k3::Float64=0, cones::Bool=true)
+function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::String="x", nk1::Int=200, nk2::Int=200, k3::Float64=0, Emax=0)
+        cones = false
         eigsheets = zeros(neigs,2*nk1+1,2*nk2+1)
         projectionsheets = zeros(neigs,2*nk1+1,2*nk2+1)
         conesheets = zeros(neigs,2*nk1+1,2*nk2+1,6)
@@ -340,13 +342,15 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
         iter = ProgressBar(1:(2*nk1+1))
         #for ik1 in iter
         #for ik1 = 1:(2*nk1+1)
-        BLAS.set_num_threads(1) # disable linalg multithreading and parallelize over k instead
         n = size(H([0.0;0.0;0.0]))[1]
         nospinN = Int(n/2)
         #Sx = I(nospinN)⊗σ₁; Sy = I(nospinN)⊗σ₂; Sz = I(nospinN)⊗σ₃
-        S = [1;0.2;0.2]
-        for ik1 in iter
+        S = 1.3*[1;0.2;0.2]
+        #for ik1 in iter
+        πovera₀ = π/(1*nm*S[2])
         # breaks for some reason :( Should be fixed in the future? 
+        for ik1 = 1:(2*nk1+1)
+        BLAS.set_num_threads(8) # disable linalg multithreading and parallelize over k instead
         #Threads.@threads for ik1 in iter
             for ik2 = 1:(2*nk2+1)
                 k = zeros(3); k[ik] = k3*X₃[ik]; 
@@ -354,8 +358,8 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
                 Hofk = H(k)
                 #tol = eps(real(eltype(Hofk)))/2
                 #println("eps = $tol")
-                if p.arpack
-                    Energies, Eigenstates = eigs(Hofk, nev = neigs, which=:SM, maxiter=200000)
+                if(p.arpack > 0 || p.arpack == true)
+                    Energies, Eigenstates = eigs(Hofk, nev = neigs, which=:SM, maxiter=2000)
                 else
                     Energies, Eigenstates = eigen(Array(Hofk))
                 end
@@ -381,18 +385,26 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
             end
         end
         # to get the effective edge of conduction, valence bands
-        minmax = minimum(map(maximum∘(f(i1,i2) = eigsheets[:,i1,i2]),collect(1:(2*nk1+1)),collect(1:(2*nk2+1))))
-        maxmin = maximum(map(minimum∘(f(i1,i2) = eigsheets[:,i1,i2]),collect(1:(2*nk1+1)),collect(1:(2*nk2+1))))
-        #maxE = maximum(eigsheets); minE = minimum(eigsheets)
-        
-        maxE = minmax*1.2+0.2; minE = maxmin*1.2-0.2;
+        if(Emax == 0)
+            minmax = minimum(map(maximum∘(f(i1,i2) = eigsheets[:,i1,i2]),collect(1:(2*nk1+1)),collect(1:(2*nk2+1))))
+            maxmin = maximum(map(minimum∘(f(i1,i2) = eigsheets[:,i1,i2]),collect(1:(2*nk1+1)),collect(1:(2*nk2+1))))
+            #maxE = maximum(eigsheets); minE = minimum(eigsheets)
+            
+            maxE = minmax*1.2+0.2; minE = maxmin*1.2-0.2;
+        else
+            maxE = Emax; minE = -Emax
+        end
         layout = Layout(scene = attr(
-                                     xaxis_title = "k₁ (1/m)",
-                                     yaxis_title = "k₂ (1/m)",
+                                     xaxis_title = "Ky (π/a₀)",
+                                     yaxis_title = "Kz (π/a₀)",
                                      zaxis_title = "Energy (eV)",
-                                     zaxis=attr(range=[minE,maxE])
-                                     ),
-                        title="Chirality-projected band structure for fixed k$kfixed = $(round(k3,sigdigits=2))×X ",)
+                                     zaxis=attr(range=[minE,maxE]),
+                                     width=500, height=500,
+                                    ),
+                        automargin=true
+                        #width = 500, height = 500, automargin=true
+                        #title="Chirality-projected band structure for fixed k$kfixed = $(round(k3,sigdigits=2))×X "
+                        )
         if(cones)
             surfaces = []
             surfaces = [surface(x=S[ik₂]*k1, y=S[ik₃]*k2, z=eigsheets[iE,:,:], surfacecolor=projectionsheets[iE,:,:], 
@@ -439,7 +451,7 @@ function eigSurface(p::NamedTuple,H::Function, Q::Matrix, neigs::Int=4, kfixed::
             display(f)
            return f 
        end
-        surfaces = [surface(x=k1, y=k2, z=eigsheets[iE,:,:], surfacecolor=projectionsheets[iE,:,:], 
+        surfaces = [surface(x=k1/πovera₀, y=k2/πovera₀, z=eigsheets[iE,:,:], surfacecolor=projectionsheets[iE,:,:], 
                             colorscale=colors.RdBu,
                             #colorscale=colors.RdBu_3, 
                             opacity=0.3, showscale = (iE==1), cmin = minimum(projectionsheets), cmax = maximum(projectionsheets))
