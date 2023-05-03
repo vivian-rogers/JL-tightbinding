@@ -233,7 +233,7 @@ function βgen(p,runtype::String,β₀::Float64=0.2*eV, θ::Float64=360, startDW
 		return fmβ
 	else
 		function noβ(R::Vector{Float64})
-			return [0;0;0]
+			return [0.0;0.0;0.0]
 		end
 	end
 end

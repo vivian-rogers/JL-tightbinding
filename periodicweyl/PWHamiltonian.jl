@@ -29,16 +29,25 @@ end
 function gtoi(p,gvec)
         # gives index in matrix for g vector (-gmax:gmax)
         iG = gvec[1]; iorb = gvec[2]
-        return iG + iorb*p.nG
+        #println("$gvec, return $(iG*p.norb + iorb)")
+        return iG*p.norb + iorb -1
 end
 
 function ConstructHamiltonian(p,M)
     Hᵦ = Hβgen(p,M)
     Hfree = freeElectron(p)
     Hweyl = weylH(p)
-    H₀ = (10^-4 + 10^-6*im)*I(p.nG*p.norb*2) .+ Diagonal(p.μ_disorder*(rand(p.nG*p.norb*2).-0.5))
+    H₀ = (10^-6*im)*I(p.nG*p.norb*2) .+ Diagonal(p.μ_disorder*(rand(p.nG*p.norb*2).-0.5))
     function H(k::Union{Vector{ComplexF64},Vector{Float64}})
-        k = k.+[1;1;1]*10^-8 # offset k slightly to avoid weird stuff
+        #k = k.+[1;1;1]*10^-8 # offset k slightly to avoid weird stuff
+        #=
+        println("Hweyl:")
+        display(dropzeros(Hweyl(k)))
+        println("Hβ:")
+        display(dropzeros(Hᵦ))
+        println("H₀:")
+        display(dropzeros(H₀))
+        =#
         H =  dropzeros(Hweyl(k) .+ Hᵦ .+ H₀)
         #H =  Hweyl(k) .+ I(p.ng*p.norb)⊗σ₂
         #=println("Hfree")
@@ -64,7 +73,7 @@ function gGrid(p::NamedTuple)
     return Gvecs
 end
 
-function gGrid(B::Matrix, maxG::Vector{Int} = [10,10,10], gcut = 50.0*eV, vf = 10^6)
+function gGrid(B::Matrix, maxG::Vector{Int} = [10,10,10], gcut = 50.0*eV, vf = 1.5*10^6)
         gvecs = Gvec[]
         #println("Generating $(2*maxG + [1,1,1]) G grid...")
         for gx = -maxG[1]:maxG[1]
@@ -72,8 +81,8 @@ function gGrid(B::Matrix, maxG::Vector{Int} = [10,10,10], gcut = 50.0*eV, vf = 1
                 for gz = -maxG[3]:maxG[3]
                     ng = [gx;gy;gz]
                     G = B*ng
-                    #E = vf*(ħ/q)*√(G⋅G)
-                    E = ħ^2*(G⋅G)/(2*m₀*q)
+                    E = vf*(ħ/q)*√(G⋅G)
+                    #E = ħ*sqrt(G⋅G)/(2*m₀*q)
                     #E = ħ^2*(G⋅G)/(2*m₀*q)
                     push!(gvecs,deepcopy(Gvec(ng,G,E,0)))
                 end
@@ -119,21 +128,26 @@ function weylH(p)
         # in hilbert space |g>⊗|spin>
         
         # linear dirac hamiltonian
-        #=NNs = Hopping[]
+        NNs = Hopping[]
         for iG in eachindex(gvecs)
             G = gvecs[iG]
             for iorb = 0:(p.norb-1)
                 ia = [G.i, iorb]
                 ib = [G.i, Int(!(Bool(iorb)))] # maps 0->1, 1->0 for τₓ orbital
                 a = gtoi(p,ia); b = gtoi(p,ib)
-                t = p.t*matdot(sin.(k+G.G),(σ))
-                H[2*b-1, 2*a-1] = t[1,1]
-                H[2*b  , 2*a-1] = t[2,1]
-                H[2*b-1, 2*a  ] = t[1,2]
-                H[2*b  , 2*a  ] = t[2,2]
+                if(p.bandwidth != false)
+                    f = tanh.((p.vf*ħ/q)*(k+G.G)/p.bandwidth)*p.bandwidth
+                    #f = 1
+                    t = (ħ/q)*(p.vf)*matdot(f,(σ))
+                else
+                    t = (ħ/q)*(p.vf)*matdot((k+G.G),(σ))
+                Hw[2*b-1, 2*a-1] = t[1,1]
+                Hw[2*b  , 2*a-1] = t[2,1]
+                Hw[2*b-1, 2*a  ] = t[1,2]
+                Hw[2*b  , 2*a  ] = t[2,2]
             end
-        end=#
-        NNs = Hopping[]
+        end
+        #=NNs = Hopping[]
         for iG in eachindex(gvecs)
             G = gvecs[iG]
             for iorb = 0:(p.norb-1)
@@ -159,8 +173,9 @@ function weylH(p)
                 t = ((-1)^iorb)*p.t*(3 - cos.(p.A*(k+G.G))⋅[1;1;1])
                 Hm[b, a] = t
             end
-        end
-        return (Hw .+ p.m*Hm⊗I(2))
+        end=#
+        return (Hw .+ p.m*I(p.nG)⊗τ₃⊗I(2))
+        #return (Hw .+ p.m*Hm⊗I(2))
     end
     return Hweyl
 end
@@ -208,14 +223,14 @@ function Hβgen(p::NamedTuple,M)
     for G in gvecs
         for G2 in gvecs #now do the convolution
             for iorb = 0:(p.norb-1)
-                ia = [G2.i,iorb]
+                ia = [G.i,iorb]
                 t = zeros(ComplexF64,2,2)
-                t .+= M[1][gridOffset(p,G.ng-G2.ng)]*I(2)
+                t .+= M[1][gridOffset(p,G2.ng-G.ng)]*I(2)
                 for ax = 2:4
                     Mᵢ = M[ax]
-                    t .+= Mᵢ[gridOffset(p,G.ng-G2.ng)]*σ[ax-1]
+                    t .+= Mᵢ[gridOffset(p,G2.ng-G.ng)]*σ[ax-1]
                 end
-                ib = [G.i,iorb]
+                ib = [G2.i,iorb]
                 pushHopping!(NNs, t, ia, ib, p) 
             end
         end

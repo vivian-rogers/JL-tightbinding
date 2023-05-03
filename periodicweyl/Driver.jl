@@ -36,7 +36,7 @@ export main
 # output: figure, with bands projected (or not))
 # can project eigstates onto an operator Q that is defined in the hilbert space of H(k) at a defined k.
 # Needs a new subroutine to calculate berry curvature or chern number  
-function runBands(p,nk, H, Q, proj::Bool=false,arpack::Bool=false,save=false,path="",name="")
+function runBands(p,nk, H, Q, proj::Bool=false,arpack=false,save=false,path="",name="")
 	
 	#default list of interesting points -- notation can be changed if desired, look in 
 	#klist = ["Γ","M","X","Γ","Z","A","R","Z","A","M","X","R","X","Γ","Z"]
@@ -58,7 +58,7 @@ function runBands(p,nk, H, Q, proj::Bool=false,arpack::Bool=false,save=false,pat
 	println("...")
 	
 	# diagonalizes hamiltonian on k-path in middle of spectrum, see getbands for # of eigvls
-	E, Estates = getBands(klist, kdict, nk, p.a, H, arpack)
+	E, Estates = getBands(klist, kdict, nk, p.a, H, 32)
 	println("Plotting...")
 	#Q = closestPeak(λ) 
 	#Q = I(2)⊗(Diagonal([1 0]))⊗I(2)⊗I(2)
@@ -140,10 +140,11 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function,returnvals)
 	println("Generating self-energy matrices for electrodes...")
 	Σks = genΣₖs(plot_params,Electrodes) #i.e. the Σᵢ(E) at a given k value. Call with Σₖ = Σks(k); then Σ = Σₖ(E)
 	println("Defining Gʳ, Current operator, etc...")
-	genGʳ, genT, genA = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
+	genGʳ, genT, genA, genScatteredT = NEGF_prep(negf_params,H,Σks) # returns the functions to generate [quantity](E) by calling genQ(k)
 	# let's sample at
+        γ⁵ = I(p.nx*p.ny*p.nz)⊗τ₁⊗σ₀;
         if(p.mixedDOS==true)
-            mdE = p.E_samples[1]*eV; η = 10^-(2.5)
+            mdE = p.E_samples[1]*eV; η = 10^-(3.0)
             function plottingGʳ(k::Vector{Float64})
                 function Gʳ(E::Float64)
                     Σₗ = Σks[1]; Σᵣ = Σks[2]
@@ -151,7 +152,6 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function,returnvals)
                 end
                 return Gʳ
             end
-            γ⁵ = I(p.nx*p.ny*p.nz)⊗τ₁⊗σ₀;
             # left and right-handed states
             Operators = [(1/2)*(I(p.nx*p.ny*p.nz*p.norb*2).+d*γ⁵)  for d = [-1,+1]]
             DOS = sitePDOS(plot_params,plottingGʳ,Operators, mdE)
@@ -171,21 +171,22 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function,returnvals)
         #TofE, Tmap, TmapList = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         #TofE, Tmap = totalT(genT, kindices, 0.3 .* kgrid, kweights, p.E_samples, minimum(p.E_samples))
         parallelk = ((nkx+1)*(nky+1)*(nkz+1) > 8)
-        S = 0.15 # scale for k-map
+        if(p.nk > 0)
+            S = 0.15 # scale for k-map
+        else
+            S = 1
+        end
         #println("parallelk = $parallelk, negf_params.prune = $(negf_params.prune)")
-        TofE, Tmap, imTmap= totalT(genT, kindices, S .* kgrid, kweights, p.E_samples, p.parallel, p.E_samples[1])
+        Operators = [I(p.nx*p.ny*p.nz*p.norb*2), γ⁵]
+        TofE, Tmap = totalT(genScatteredT, kindices, S .* kgrid, kweights, p.E_samples, p.E_samples[1], parallelk, Operators)
         TofE = S^2*TofE
-        #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
-        #plotHeatmap([i for i = 1:(2*nky+1)],[i for i = 1:(2*nkz+1)],Tmap',"k₂","k₃","T(ky,kz)",:rainbow)
         figh = pyplotHeatmap(S*kys/(π/p.a),S*kzs/(π/p.a),Tmap',"ky (π/a)","kz (π/a)","T(ky,kz)",:nipy_spectral, p.savedata, p.path)
         if("tplot" ∈ p.returnvals)
             push!(returnvals,figh)
         end
-        #plotMat(Tmap',"k₂","k₃")
         #if(p.savedata)
         #    SavePlots(figh,p.path,"Tmap")
         #end
-        #figT = plot1D(TofE,[p.E_samples],"Conductance (e²/h)","E (eV)","Stripe Domain",0.0,4.0,minimum(p.E_samples),maximum(p.E_samples))
         if(p.savedata)
             mkdelim(p.path * "transmission.txt", [p.E_samples TofE])
             mkdelim(p.path * "Tmap.txt", [Tmap'])
@@ -194,19 +195,6 @@ function NEGF_2contacts_1layer(p::NamedTuple,A::Function,returnvals)
             #jldsave(p.path * "fig_transmission.jld2", figT)
             #SavePlots(figT,p.path,"transmission")
         end
-        #=
-        DOSofE = NEGF.DOS(genGʳ,kgrid,kweights,p.E_samples,parallelk)
-        dE = (maximum(p.E_samples) - minimum(p.E_samples))/size(p.E_samples)[1]
-        totDOS = dE*sum(DOSofE);
-        println("Total # states = $totDOS")
-        plot1D(DOSofE,p.E_samples,"DOS","E (eV)",0.0,10.0,minimum(p.E_samples),maximum(p.E_samples))
-		=#
-		#plotMat(imTmap',"k₂","k₃")
-
-        #plotMat([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
-        #plot2D([i[1] for i in kindices],[i[2] for i in kindices],TmapList,"k₂","k₃")
-	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
-	#plotSurf([k[1] for k in kgrid], [k[2] for k in kgrid], Tmap, "ky (π/a₂)", "kz (π/a₃)")	
         return TofE	
 end
 
@@ -245,10 +233,10 @@ function main(p,A=A,save=false,path="")
             H = runSCF(p,A,returnvals,save,path)
             testH = H([0;0;0])
             println("size of H = $(size(testH))")
-            Q = I(p.n)⊗I(p.nsite)⊗I(p.norb)⊗σ₂
+            Q = I(p.n)⊗I(p.nsite)⊗τ₁⊗σ₀
             #Q = distFromDW(p,RvalsGen(p))⊗I(p.norb)⊗(2) 
             #Q = zpos(RvalsGen(p))⊗I(p.norb)⊗I(2)
-            runBands(p,2^6,H,Q,true,p.arpack)
+            runBands(p,2^7,H,Q,true,p.arpack)
         end
         #println("testH₀ = \n $testH")
 	# some arbitrary operators for bands routine

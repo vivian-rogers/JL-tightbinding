@@ -64,6 +64,7 @@ function Hgen(p,A::Function,returnvals)
         else
             Hᵦ = 0I(p.n*p.nsite*p.norb*2)
         end
+	ntot = p.n*p.nsite*p.norb*2
         #Bfield = fieldUtils(p,A,Rsurf)
 	#println("Generating field")
 	#Bsurf = zeros(size(Rsurf))
@@ -110,9 +111,11 @@ function Hgen(p,A::Function,returnvals)
                             end
                         end
 		end
-                Hₑ = sparse(rows,cols,elements)
+		Hₑ = sparse(rows,cols,elements)
+		if(size(Hₑ) == (0,0)) Hₑ = spzeros(ComplexF64,ntot,ntot) end 
+		#println("Hedges = $(size(Hₑ)), H₀ = $(size(H₀))")
 		Htot = H₀ .+ Hₑ
-                return dropzeros(Htot)
+		return dropzeros(Htot)
                 #return dropzeros(Htot)
 		#return dropzeros(Hᵦ)
 		#return dropzeros(sparse(H₀ .+ H_onsite .+ Hₑ .+ Hᵦ))
