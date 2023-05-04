@@ -141,7 +141,7 @@ function weylH(p)
                     t = (ħ/q)*(p.vf)*matdot(f,(σ))
                 else
                     t = (ħ/q)*(p.vf)*matdot((k+G.G),(σ))
-		end
+                end
                 Hw[2*b-1, 2*a-1] = t[1,1]
                 Hw[2*b  , 2*a-1] = t[2,1]
                 Hw[2*b-1, 2*a  ] = t[1,2]
@@ -240,5 +240,6 @@ function Hβgen(p::NamedTuple,M)
     return Hb
 end
 
+end
 
 end
